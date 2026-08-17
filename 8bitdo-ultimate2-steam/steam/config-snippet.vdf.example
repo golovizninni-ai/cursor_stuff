@@ -1,0 +1,10 @@
+# Фрагмент для ~/.local/share/Steam/config/config.vdf
+# (или ~/.steam/steam/config/config.vdf на некоторых установках)
+#
+# ВАЖНО: Steam должен быть полностью закрыт перед редактированием!
+# Добавить перед последней закрывающей скобкой "}" в файле.
+#
+# Если ключ controller_blacklist уже существует — дописать через запятую:
+#   "controller_blacklist" "xxxx/yyyy,2dc8/6013"
+
+"controller_blacklist" "2dc8/6013"

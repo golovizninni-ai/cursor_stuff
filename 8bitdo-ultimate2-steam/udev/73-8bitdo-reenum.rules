@@ -1,0 +1,6 @@
+# Вариант 4: USB reset порта при появлении D-Input геймпада (PID 6012).
+# Заставляет Steam переинициализировать контроллер без Restart Steam.
+# Требует scripts/8bitdo-reenum.sh в /usr/local/bin/
+
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="2dc8", ATTR{idProduct}=="6012", \
+  RUN+="/usr/local/bin/8bitdo-reenum.sh %p"

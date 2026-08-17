@@ -1,0 +1,6 @@
+# Вариант 3: отвязать hid-generic от пустого донгла 6013.
+# Жёстче, чем hide-dummy; используйте, если вариант 2 недостаточен.
+# НЕ ставьте ATTR{authorized}="0" — донгл перестанет перечисляться в 6012.
+
+ACTION=="bind", SUBSYSTEM=="hid", ATTRS{idVendor}=="2dc8", ATTRS{idProduct}=="6013", \
+  RUN+="/bin/sh -c 'echo -n %k > /sys/bus/hid/drivers/hid-generic/unbind'"
