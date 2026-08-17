@@ -1,6 +1,6 @@
-# Вариант 2: скрыть пустой 2.4 ГГц донгл (PID 6013) от Steam и input-подсистемы.
-# USB-устройство остаётся на шине — Wake-on-USB не ломается.
-# При включении геймпада в D-Input появляется PID 6012 с нормальными правами.
+# Пустой приёмник Ultimate 2: не джойстик, hidraw Steam не открыть.
+# USB-устройство ОСТАЁТСЯ на шине — иначе сломаются wait-for-6013 и Wake-on-USB.
+# Не используйте ATTR{authorized}="0".
 
 ACTION=="add", SUBSYSTEM=="input", ATTRS{idVendor}=="2dc8", ATTRS{idProduct}=="6013", \
   ENV{ID_INPUT}="0", ENV{ID_INPUT_JOYSTICK}="0"

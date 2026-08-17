@@ -67,6 +67,94 @@ sudo udevadm trigger
 
 ---
 
+## Сон из Big Picture, док и wake (рабочая установка)
+
+Цель: **будить ПК любым действием 8BitDo** (снятие с дока, Home, XInput, D-Input).  
+При засыпании: положить на док или Home-off **не должно** снова разбудить ПК и не должно оставить его в полусне (экраны выкл, вентиляторы крутятся).
+
+Автовыключения XInput **нет** — команда USB не проверена. После wake в XInput выключите Home и включите **Home+B**. Эксперимент: [`../8bitdo-xinput-poweroff-experimental/`](../8bitdo-xinput-poweroff-experimental/).
+
+### Три сценария без хуков
+
+| Что сделали | Результат |
+|-------------|-----------|
+| Не успели: ПК уже спал, потом док / Home-off | USB `6012`/`310b`→`6013` **будит** ПК |
+| Док в момент freeze | Гонка USB → «ни сон ни работа» |
+| Док **до** сна | Уже `6013`, сон нормальный |
+
+USB не различает «включение» и «выключение». Поэтому: **дождаться idle до freeze** и/или **снова уснуть**, если разбудило выключение.
+
+### Варианты (что выбрано)
+
+| Вариант | В поставке |
+|---------|------------|
+| **B. Ждать `6013`, таймаут 20 с** | Да, `MODE=wait` по умолчанию. Уже на доке — сразу sleep |
+| **A. Всегда 20 с** | Опция: `MODE=delay` в `/etc/8bitdo-sleep.conf` |
+| **D. Ложный wake → снова sleep** | Да: уснули с живым падом, проснулись в `6013` |
+| C. Unbind донгла | Нет (не проверено) |
+| E. Выключить USB wakeup | Нет — сломает wake от 8BitDo |
+| HID power-off при XInput | Нет, только experimental |
+
+Не ставьте `ATTR{authorized}="0"` на `6013`: донгл должен оставаться на шине и для Steam-hide, и для wait/wake.
+
+### Установка sleep-хуков (Bazzite, ostree)
+
+`/usr` read-only — файлы в `/usr/local` и `/etc`.
+
+```bash
+cd 8bitdo-ultimate2-steam
+sudo ./scripts/install-sleep.sh
+# конфиг: /etc/8bitdo-sleep.conf
+```
+
+Вручную:
+
+```bash
+sudo install -m 0755 scripts/8bitdo-pre-suspend.sh scripts/8bitdo-post-resume.sh /usr/local/bin/
+sudo install -m 0644 scripts/8bitdo-common.sh /usr/local/lib/
+sudo install -m 0644 config/8bitdo-sleep.conf /etc/8bitdo-sleep.conf
+sudo mkdir -p /etc/systemd/system/systemd-suspend.service.d
+sudo cp systemd/8bitdo-suspend.conf /etc/systemd/system/systemd-suspend.service.d/8bitdo.conf
+sudo systemctl daemon-reload
+```
+
+`install-sleep.sh` также вешает хук на hybrid-sleep и suspend-then-hibernate.
+
+Снятие: `sudo ./scripts/uninstall-sleep.sh`
+
+### Конфиг `/etc/8bitdo-sleep.conf`
+
+```
+MODE=wait          # wait | delay
+TIMEOUT=20         # секунд ждать 6013 в MODE=wait
+SLEEP_DELAY=20     # пауза в MODE=delay
+RESUSPEND_DELAY=2  # пауза перед повторным suspend
+```
+
+Пока Steam пишет «засыпаю», `ExecStartPre` держит freeze — это окно «успеть на док».
+
+### Поведение после установки
+
+- Геймпад уже на доке (`6013`) → sleep сразу.
+- Геймпад включён → до 20 с ждём док/Home; не дождались — всё равно sleep, флаг «уснули активными».
+- Проснулись в **D-Input или XInput** → остаёмся awake.
+- Проснулись в **`6013`**, а уснули активными → через ~2 с снова sleep (док после сна).
+- Уснули уже idle, wake от клавиатуры/питания → **не** усыпляем снова.
+
+Лог: `journalctl -t 8bitdo-sleep -b`
+
+### Проверка сна
+
+1. На доке → sleep из Game Mode → сразу (или короткий settle) спит.
+2. В руках, sleep, за ~20 с на док → сон, не полусон.
+3. Не успели, док после сна → не просыпается насовсем (миг и снова sleep).
+4. Сон, снятие / Home / XInput / `B+Home` → ПК просыпается и **остаётся** awake.
+5. После XInput-wake геймпад **сам не гаснет** (рабочая версия).
+
+Если зависон **без** касания геймпада — часто Gigabyte GPP / NVIDIA (`ujust _toggle-gigabyte-wake-fix`), не эти скрипты.
+
+---
+
 ## Варианты решения бага Steam
 
 От простого к продвинутому. Можно комбинировать **1 + 2**, при необходимости добавить **3** или **4**.
@@ -190,18 +278,17 @@ echo enabled | sudo tee /sys/bus/usb/devices/1-2/power/wakeup
 ## Рекомендуемый порядок установки на Bazzite
 
 ```bash
-# 1. Права hidraw (если гиро не работает даже после фикса Steam)
+cd 8bitdo-ultimate2-steam
+
+# Сон / док / wake
+sudo ./scripts/install-sleep.sh
+
+# Steam: гиро и extra buttons (если ещё нет)
 sudo cp udev/71-8bitdo-u2w.rules /etc/udev/rules.d/
-
-# 2. Скрыть пустой донгл
 sudo cp udev/71-8bitdo-hide-dummy.rules /etc/udev/rules.d/
-
-# 3. SDL ignore для Game Mode
 mkdir -p ~/.config/environment.d
 cp environment/99-8bitdo.conf ~/.config/environment.d/
-
-# 4. Steam blacklist (Steam закрыт!)
-# см. steam/config-snippet.vdf.example
+# Steam blacklist при закрытом Steam: steam/config-snippet.vdf.example
 
 sudo udevadm control --reload
 sudo udevadm trigger
@@ -209,6 +296,8 @@ sudo udevadm trigger
 ```
 
 Если Steam всё ещё «глупый» → добавить вариант 3 или 4.
+
+XInput auto-off **не** ставить отсюда — см. experimental-каталог.
 
 ---
 
@@ -228,17 +317,24 @@ sudo udevadm trigger
 ```
 8bitdo-ultimate2-steam/
 ├── README.md
-├── environment/
-│   └── 99-8bitdo.conf          # SDL ignore для Game Mode
-├── steam/
-│   └── config-snippet.vdf.example
+├── config/8bitdo-sleep.conf
+├── environment/99-8bitdo.conf
+├── steam/config-snippet.vdf.example
+├── systemd/8bitdo-suspend.conf
 ├── scripts/
-│   └── 8bitdo-reenum.sh        # USB reset при появлении 6012
+│   ├── 8bitdo-common.sh
+│   ├── 8bitdo-pre-suspend.sh
+│   ├── 8bitdo-post-resume.sh
+│   ├── install-sleep.sh
+│   ├── uninstall-sleep.sh
+│   └── 8bitdo-reenum.sh
 └── udev/
-    ├── 71-8bitdo-u2w.rules           # hidraw uaccess
-    ├── 71-8bitdo-hide-dummy.rules    # скрыть 6013 от Steam
-    ├── 72-8bitdo-unbind-dummy.rules  # unbind hid для 6013
-    └── 73-8bitdo-reenum.rules        # trigger reset на 6012
+    ├── 71-8bitdo-u2w.rules
+    ├── 71-8bitdo-hide-dummy.rules
+    ├── 72-8bitdo-unbind-dummy.rules
+    └── 73-8bitdo-reenum.rules
+
+8bitdo-xinput-poweroff-experimental/   # НЕ в дефолтной установке
 ```
 
 ---
@@ -249,3 +345,5 @@ sudo udevadm trigger
 - [steam-for-linux#12154](https://github.com/ValveSoftware/steam-for-linux/issues/12154) — extended buttons / hidraw
 - [steam-devices#64](https://github.com/ValveSoftware/steam-devices/issues/64) — udev для Ultimate 2
 - [Gist: Ultimate 2 on Linux](https://gist.github.com/barraIhsan/783a82bcf32bed896c85d27dbb8018a5)
+- [8bitdo-sleep-fix](https://github.com/jasonewall/8bitdo-sleep-fix) — unbind + wait idle (у нас wait без unbind)
+- [wake-on-2.4g](https://github.com/Redemp/wake-on-2.4g) — waitdock / idle PID
