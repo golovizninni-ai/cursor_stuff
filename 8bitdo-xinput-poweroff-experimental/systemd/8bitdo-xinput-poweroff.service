@@ -1,7 +1,0 @@
-[Unit]
-Description=Experimental: try to power off 8BitDo Ultimate 2 in XInput (2dc8:310b)
-DefaultDependencies=no
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/bin/8bitdo-xinput-poweroff.py
