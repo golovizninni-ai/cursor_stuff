@@ -91,6 +91,18 @@ for conf in "$ETC/modules/"*.conf "$ETC/"playerbots.conf; do
   case "$base" in
     playerbots.conf)
       apply_if_present "$conf" "$REPO_ROOT/configs/playerbots/playerbots.overlay.conf"
+      if [[ -f "$AC_ROOT/$VARIANT/ollama-chat" ]]; then
+        apply_if_present "$conf" "$REPO_ROOT/configs/playerbots/playerbots-ollama.overlay.conf"
+      fi
+      ;;
+    *ollama*)
+      apply_if_present "$conf" "$REPO_ROOT/configs/playerbots/mod_ollama_chat.overlay.conf"
+      if [[ -f "$AC_ROOT/$VARIANT/ollama-chat" ]]; then
+        extra="$(mktemp)"
+        printf 'OllamaChat.Model = %s\n' "$(tr -d '[:space:]' <"$AC_ROOT/$VARIANT/ollama-chat")" >"$extra"
+        apply_if_present "$conf" "$extra"
+        rm -f "$extra"
+      fi
       ;;
     *[Ii]ndividual*)
       apply_if_present "$conf" "$REPO_ROOT/configs/common/individualProgression.overlay.conf"

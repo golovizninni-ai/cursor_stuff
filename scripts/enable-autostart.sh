@@ -14,6 +14,10 @@ if [[ "$MODE" == "docker" ]]; then
     "$(docker_db_container "$VARIANT")" 2>/dev/null || true
   $SUDO systemctl enable docker 2>/dev/null || true
   log "Docker: restart=unless-stopped; docker.service как у *arr"
+  if [[ -f "$AC_ROOT/$VARIANT/ollama-chat" ]]; then
+    $SUDO systemctl enable --now ollama 2>/dev/null || true
+    log "ollama.service на хосте тоже в автозапуске"
+  fi
   log "сейчас поднять: scripts/start.sh $VARIANT"
   dc ps || true
   exit 0
@@ -34,6 +38,10 @@ fi
 sc enable "$(auth_unit "$VARIANT")" "$(world_unit "$VARIANT")"
 write_active_variant "$VARIANT"
 log "автозапуск $VARIANT включён"
+if [[ -f "$AC_ROOT/$VARIANT/ollama-chat" ]]; then
+  $SUDO systemctl enable --now ollama 2>/dev/null || true
+  log "ollama.service тоже в автозапуске (чат ботов)"
+fi
 log "сейчас поднять: scripts/start.sh $VARIANT"
 log "снять: scripts/disable-autostart.sh $VARIANT"
 sc is-enabled "$(auth_unit "$VARIANT")"

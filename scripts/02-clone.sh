@@ -37,6 +37,9 @@ case "$VARIANT" in
     mkdir -p "$SRC/modules"
     clone_or_update https://github.com/mod-playerbots/mod-playerbots.git "$SRC/modules/mod-playerbots" master
     clone_or_update https://github.com/azerothcore/mod-autobalance.git "$SRC/modules/mod-autobalance" master
+    if [[ -f "$AC_ROOT/$VARIANT/ollama-chat" ]]; then
+      clone_or_update https://github.com/DustinHendrickson/mod-ollama-chat.git "$SRC/modules/mod-ollama-chat" master
+    fi
     ;;
   npcbots)
     clone_or_update https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots.git "$SRC" npcbots_3.3.5

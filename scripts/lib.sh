@@ -139,7 +139,11 @@ compose_project() {
 }
 
 dc() {
-  docker compose --project-name "$(compose_project "$VARIANT")" --project-directory "$SRC" "$@"
+  local files=()
+  [[ -f "$SRC/docker-compose.yml" ]] && files+=(-f docker-compose.yml)
+  [[ -f "$SRC/docker-compose.override.yml" ]] && files+=(-f docker-compose.override.yml)
+  [[ -f "$SRC/docker-compose.ollama.yml" ]] && files+=(-f docker-compose.ollama.yml)
+  docker compose --project-name "$(compose_project "$VARIANT")" --project-directory "$SRC" "${files[@]}" "$@"
 }
 
 docker_world_container() { echo "ac-${1}-worldserver"; }

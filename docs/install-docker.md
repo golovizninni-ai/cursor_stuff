@@ -49,6 +49,8 @@ docker attach ac-playerbots-worldserver
 
 Playerbots в Docker официально «limited support»: при ошибке сборки используйте нативный путь.
 
+Опция чата ботов (Ollama на хосте с GPU, не в *arr): `scripts/enable-ollama-chat.sh playerbots` — [ollama-chat.md](ollama-chat.md).
+
 ## Опция: красивее модели и текстуры
 
 Контейнеры не трогать. На клиенте Bazzite — HD-патч ChromieCraft или установщик `patchmenu.exe` (модели и часть текстур).

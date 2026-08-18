@@ -193,6 +193,15 @@ Rndbot подтягивает тир, когда его инвайтят. AddCla
 
 Классы `addclass`: `warrior paladin hunter rogue priest shaman mage warlock druid dk`.
 
+Опция LLM-чата (Ollama, [ollama-chat.md](ollama-chat.md)):
+
+| Команда | Зачем |
+|---|---|
+| шепот `/w Имя текст` | Бот отвечает по-русски |
+| `.ollama reload` | Перечитать conf и личности |
+| `.ollama personality list` | Список личностей |
+| `.ollama personality set Имя Gamer` | Задать стиль бота |
+
 Полный список: [wiki playerbots](https://github.com/mod-playerbots/mod-playerbots/wiki/Playerbot-Commands).
 
 ## Только npcbots
