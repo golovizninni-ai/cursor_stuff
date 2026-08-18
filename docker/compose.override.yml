@@ -1,0 +1,37 @@
+# Отдельный Docker Compose для AzerothCore. Не кладите это в compose *arr.
+#
+# Подставляется в ~/azerothcore-servers/<вариант>/src/docker-compose.override.yml
+# Имена контейнеров и лимиты задаёт scripts/install-docker.sh.
+
+services:
+  ac-database:
+    restart: unless-stopped
+
+  ac-worldserver:
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./modules:/azerothcore/modules:ro
+    environment:
+      AC_REALM_ZONE: "12"
+      AC_DECLINED_NAMES: "1"
+      AC_DBC_LOCALE: "0"
+      AC_ENABLE_PLAYER_SETTINGS: "1"
+      AC_DBC_ENFORCE_ITEM_ATTRIBUTES: "0"
+      AC_UPDATES_ENABLE_DATABASES: "7"
+      AC_MAX_PRIMARY_TRADE_SKILL: "11"
+      AC_MAP_UPDATE_THREADS: "4"
+      AC_SOAP_ENABLED: "0"
+      AC_BIND_IP: "0.0.0.0"
+      AC_WORLD_SERVER_PORT: "8085"
+
+  ac-authserver:
+    restart: unless-stopped
+    environment:
+      AC_BIND_IP: "0.0.0.0"
+      AC_REALM_SERVER_PORT: "3724"
+
+  ac-db-import:
+    volumes:
+      - ./modules:/azerothcore/modules:ro

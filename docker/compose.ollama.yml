@@ -1,0 +1,16 @@
+# Подключается scripts/enable-ollama-chat.sh → docker-compose.ollama.yml в корне форка.
+# Ollama крутится на хосте ВМ (GPU), не в compose *arr.
+services:
+  ac-worldserver:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./env/dist/etc/modules/mod_ollama_chat.conf:/azerothcore/env/dist/etc/modules/mod_ollama_chat.conf:ro
+    environment:
+      AC_OLLAMA_CHAT_ENABLE: "1"
+      AC_OLLAMA_CHAT_URL: "http://host.docker.internal:11434/api/generate"
+      AC_OLLAMA_CHAT_MODEL: "qwen2.5:3b"
+      AC_AI_PLAYERBOT_ENABLE_BROADCASTS: "0"
+      AC_AI_PLAYERBOT_RANDOM_BOT_TALK: "0"
+      AC_AI_PLAYERBOT_RANDOM_BOT_EMOTE: "0"
+      AC_AI_PLAYERBOT_ENABLE_GREET: "0"
