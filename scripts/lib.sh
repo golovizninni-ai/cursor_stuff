@@ -114,3 +114,82 @@ manual_ac_running() {
   pgrep -x worldserver >/dev/null 2>&1 || pgrep -x authserver >/dev/null 2>&1
 }
 
+install_mode_file() {
+  echo "$AC_ROOT/$1/install-mode"
+}
+
+read_install_mode() {
+  local v="${1:-${VARIANT:-}}"
+  local f
+  f="$(install_mode_file "$v")"
+  if [[ -f "$f" ]]; then
+    tr -d '[:space:]' <"$f"
+  else
+    echo native
+  fi
+}
+
+write_install_mode() {
+  mkdir -p "$AC_ROOT/$1"
+  printf '%s\n' "$2" >"$(install_mode_file "$1")"
+}
+
+compose_project() {
+  echo "ac-${1}"
+}
+
+dc() {
+  docker compose --project-name "$(compose_project "$VARIANT")" --project-directory "$SRC" "$@"
+}
+
+docker_world_container() { echo "ac-${1}-worldserver"; }
+docker_auth_container() { echo "ac-${1}-authserver"; }
+docker_db_container() { echo "ac-${1}-database"; }
+
+load_docker_env() {
+  [[ -f "$SRC/.env" ]] || return 0
+  set -a
+  # shellcheck disable=SC1091
+  source "$SRC/.env"
+  set +a
+}
+
+docker_mysql() {
+  load_docker_env
+  local pass="${DOCKER_DB_ROOT_PASSWORD:-password}"
+  docker exec -i "$(docker_db_container "$VARIANT")" mysql -uroot -p"${pass}" "$@"
+}
+
+stop_variant_stack() {
+  local v="$1"
+  local mode
+  mode="$(read_install_mode "$v")"
+  local saved_variant="${VARIANT:-}"
+  variant_paths "$v"
+  VARIANT="$v"
+  if [[ "$mode" == "docker" ]]; then
+    if [[ -f "$SRC/docker-compose.yml" ]] && command -v docker >/dev/null; then
+      docker compose --project-name "$(compose_project "$v")" --project-directory "$SRC" stop ac-worldserver ac-authserver 2>/dev/null || true
+    fi
+  else
+    if [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/ac-${v}-world.service" ]] || [[ -f "/etc/systemd/system/ac-${v}-world.service" ]]; then
+      systemd_for_variant "$v"
+      sc stop "$(world_unit "$v")" "$(auth_unit "$v")" 2>/dev/null || true
+    fi
+  fi
+  if [[ -n "$saved_variant" ]]; then
+    VARIANT="$saved_variant"
+    variant_paths "$saved_variant"
+  fi
+}
+
+stop_other_variants() {
+  local current="$1"
+  local v
+  for v in playerbots npcbots lonewolf; do
+    [[ "$v" != "$current" ]] || continue
+    [[ -d "$AC_ROOT/$v" ]] || continue
+    stop_variant_stack "$v"
+  done
+}
+
