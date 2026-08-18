@@ -66,6 +66,30 @@ grep . /sys/bus/usb/devices/*/power/wakeup 2>/dev/null | grep enabled
 lsusb -t
 ```
 
+### Минимальный таргет: пробуждение только от донгла 8BitDo Ultimate 2
+
+Если хотите максимально узко (без wake от любых USB устройств), включите `power/wakeup`
+только для USB-узла донгла, когда он в idle-режиме **`2dc8:6013`**.
+
+1) Оставьте геймпад **выключенным** или положите на док (чтобы донгл был в `6013`).  
+2) Выполните:
+
+```bash
+# Включить wakeup только для устройств VID=2dc8 PID=6013 (idle донгл)
+for d in /sys/bus/usb/devices/*; do
+  [[ -f "$d/idVendor" && -f "$d/idProduct" && -f "$d/power/wakeup" ]] || continue
+  vid="$(tr '[:upper:]' '[:lower:]' <"$d/idVendor" 2>/dev/null | tr -d '[:space:]')"
+  pid="$(tr '[:upper:]' '[:lower:]' <"$d/idProduct" 2>/dev/null | tr -d '[:space:]')"
+  if [[ "$vid" == "2dc8" && "$pid" == "6013" ]]; then
+    echo enabled | sudo tee "$d/power/wakeup" >/dev/null
+    echo "enabled: $d (2dc8:6013)"
+  fi
+done
+```
+
+Если у вас wake нужно и для других состояний, повторите для PID `6012` и/или `310b`
+(заменив `6013` в скрипте).
+
 ### 5. Проверка
 
 1. Донгл в USB, ПК в sleep (Big Picture → Sleep)
