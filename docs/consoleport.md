@@ -67,3 +67,5 @@ PROTON_REMOTE_DEBUG_CMD="/var/home/USER/Games/WoWpadX/WoWpadX.exe" %command%
 - Аддон включён уже на экране персонажей.
 - После обновления ConsolePortLK: `/cp resetall` или чистый `WTF/` в префиксе.
 - Кастомные «репаки» клиента с ломаным RestrictedEnvironment аддон не переваривает.
+
+HD-модели ChromieCraft (опция, не аддон): [visuals.md](visuals.md).

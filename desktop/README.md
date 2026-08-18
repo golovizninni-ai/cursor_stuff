@@ -70,3 +70,5 @@ set realmlist IP_ВАШЕЙ_ВМ
 Язык клиента — русский, иначе читается `Data/enUS/`.
 
 Аддоны кладите в тот же префикс: `Interface/AddOns/`. Геймпад: [docs/consoleport.md](../docs/consoleport.md).
+
+Опционально HD-модели/текстуры (патчи ChromieCraft, только клиент): [docs/visuals.md](../docs/visuals.md).

@@ -24,3 +24,9 @@ cd ~/azerothcore-deploy
 ```
 
 Подробнее: [service.md](service.md). Аккаунт: `account create` в консоли worldserver. AHBot: `setup-ahbot.sh`. Адрес реалма: `set-realm-address.sh`.
+
+## Опция: красивее модели и текстуры
+
+Сервер уже готов. На клиенте Bazzite можно поставить HD-патч ChromieCraft (современные модели, часть текстур) или установщик `patchmenu.exe`. К сборке на ВМ это не относится.
+
+Инструкция: [visuals.md](visuals.md). Realmlist после патча должен остаться IP вашей ВМ.
