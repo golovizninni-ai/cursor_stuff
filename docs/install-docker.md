@@ -48,3 +48,9 @@ docker attach ac-playerbots-worldserver
 Если в форке нет `docker-compose.yml`, скрипт остановится и предложит [install-native.md](install-native.md).
 
 Playerbots в Docker официально «limited support»: при ошибке сборки используйте нативный путь.
+
+## Опция: красивее модели и текстуры
+
+Контейнеры не трогать. На клиенте Bazzite — HD-патч ChromieCraft или установщик `patchmenu.exe` (модели и часть текстур).
+
+Инструкция: [visuals.md](visuals.md). Realmlist после патча должен остаться IP вашей ВМ.

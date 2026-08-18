@@ -63,7 +63,7 @@ AHBot и IP реалма:
 
 Playerbots: `.playerbots bot addclass warrior`, `/p follow`. NPCBots: gossip / `.npcbot`. Lonewolf: без ИИ.
 
-Аддоны: [docs/addons.md](docs/addons.md). ConsolePort на Bazzite: [docs/consoleport.md](docs/consoleport.md).
+Аддоны: [docs/addons.md](docs/addons.md). ConsolePort на Bazzite: [docs/consoleport.md](docs/consoleport.md). HD-модели (опция): [docs/visuals.md](docs/visuals.md).
 
 ## Клиент и порты для друзей
 
@@ -72,3 +72,9 @@ Playerbots: `.playerbots bot addclass warrior`, `/p follow`. NPCBots: gossip / `
 Проброс: **TCP 3724** и **8085**. MySQL наружу не открывать. [docs/ports.md](docs/ports.md).
 
 Data для **native**: [desktop/README.md](desktop/README.md). Для **Docker** карты качает контейнер сам.
+
+## Опция: красивее модели и текстуры
+
+Не обязательно. Только клиент на Bazzite, сервер не пересобирать. На [загрузках ChromieCraft](https://chromiecraft.com/en/downloads/) есть **HD Patch** (файлы в `Data/`) и **Alternative HD Patch** с установщиком `patchmenu.exe`: модели становятся современнее, обновляется часть текстур.
+
+Полная инструкция для Lutris/Bottles/Proton: [docs/visuals.md](docs/visuals.md). После патча realmlist должен остаться **ваш IP**, не реалм ChromieCraft.

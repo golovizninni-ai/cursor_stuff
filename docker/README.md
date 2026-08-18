@@ -14,3 +14,5 @@
 - `env.example` — порты и пароль БД
 
 На хост: 3724 и 8085. 3306/7878 не занимаем (MariaDB/Radarr).
+
+Опция на клиенте (модели/текстуры ChromieCraft): [docs/visuals.md](../docs/visuals.md).

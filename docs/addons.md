@@ -50,3 +50,7 @@
 - WeakAuras 5.x.
 - Аддоны Cataclysm+.
 - Несколько угрозометров сразу.
+
+## Опция: модели и текстуры
+
+HD-патчи ChromieCraft — не аддоны. Их кладут в `Data/` (`patch-*.MPQ`) или ставят установщиком `patchmenu.exe`. См. [visuals.md](visuals.md).
