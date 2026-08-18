@@ -1,0 +1,36 @@
+services:
+  tdarr:
+    container_name: tdarr
+    image: ghcr.io/haveagitgat/tdarr:latest
+    restart: unless-stopped
+    ports:
+      - "${TDARR_WEBUI_PORT:-8265}:8265"
+      - "${TDARR_SERVER_PORT:-8266}:8266"
+    environment:
+      - TZ=${TZ:-Europe/Moscow}
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - UMASK_SET=${UMASK_SET:-002}
+      - serverIP=0.0.0.0
+      - serverPort=8266
+      - webUIPort=8265
+      - internalNode=true
+      - nodeID=InternalNode1660Ti
+      - ffmpegVersion=7
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - NVIDIA_VISIBLE_DEVICES=all
+    volumes:
+      - ${TDARR_SERVER_DIR:-./server}:/app/server
+      - ${TDARR_CONFIGS_DIR:-./configs}:/app/configs
+      - ${TDARR_LOGS_DIR:-./logs}:/app/logs
+      - ${OUTPUT_DIR:-/mnt/media/downloads/output}:/media/output
+      - ${TDARR_TEMP:-/opt/tdarr/temp}:/temp
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    # Uncomment if `docker info` shows the nvidia runtime:
+    # runtime: nvidia
