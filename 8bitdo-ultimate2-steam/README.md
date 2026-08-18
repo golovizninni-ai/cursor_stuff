@@ -2,6 +2,82 @@
 
 Решения для работы **8BitDo Ultimate 2 Wireless** (2.4 ГГц донгл) в режиме **D-Input** со Steam Input: гироскоп, L4/R4, PL/PR без ручного Restart Steam.
 
+## Пробуждение ПК геймпадом на Bazzite (кратко)
+
+Из коробки Bazzite/Linux **не** будит 8BitDo по 2.4 ГГц донгл: у донгла нет remote-wakeup как у клавиатуры. **Bluetooth** кнопкой геймпада ПК тоже обычно **не** будит — рабочий путь: **донгл в USB**, wake по USB-событию на шине (вкл/выкл геймпада, смена PID `6013` ↔ `6012`/`310b`).
+
+### 1. BIOS
+
+- **Wake from USB** / **USB Wake Support** — включить
+- **ErP / EuP / Deep S5** — выключить (иначе USB во сне без питания)
+
+### 2. ACPI — USB-контроллеры
+
+```bash
+cat /proc/acpi/wakeup | grep -i XHC
+```
+
+Строки `XHC`, `XHC0`, `XHC1` … должны быть `*enabled`. Если `*disabled`:
+
+```bash
+echo XHC0 | sudo tee /proc/acpi/wakeup   # имя с вашей платы
+```
+
+На Gigabyte при «чёрный экран, вентиляторы крутятся» после сна — отдельно: `ujust _toggle-gigabyte-wake-fix` ([документация Bazzite](https://docs.bazzite.gg/General/issues_and_resolutions/)).
+
+### 3. USB root hubs (минимум, часто достаточно)
+
+Разово (до перезагрузки):
+
+```bash
+for d in /sys/bus/usb/devices/usb*/power/wakeup; do
+  echo enabled | sudo tee "$d"
+done
+```
+
+Постоянно:
+
+```bash
+sudo cp udev/10-wakeup-usb-hubs.rules /etc/udev/rules.d/
+sudo udevadm control --reload && sudo udevadm trigger
+```
+
+Проверка: `cat /sys/bus/usb/devices/usb3/power/wakeup` → `enabled` (номер `usb3` у вас свой — смотрите `lsusb -t`, к какому Bus подключён донгл).
+
+### 4. «Любое USB / PCIe» (если хабов мало — как при тесте BT + донгла)
+
+```bash
+# все USB-узлы с power/wakeup
+for f in /sys/bus/usb/devices/*/power/wakeup; do
+  echo enabled | sudo tee "$f"
+done
+
+# PCI (осторожно — может сразу будить после сна)
+for f in /sys/bus/pci/devices/*/power/wakeup; do
+  echo enabled | sudo tee "$f"
+done
+```
+
+Широкий wakeup даёт **ложные** пробуждения (док, Home-off, внутренний BT). Внутренний Bluetooth-адаптер, если сам будит ПК после сна, лучше оставить `disabled`:
+
+```bash
+# пример: найти виновника
+grep . /sys/bus/usb/devices/*/power/wakeup 2>/dev/null | grep enabled
+lsusb -t
+```
+
+### 5. Проверка
+
+1. Донгл в USB, ПК в sleep (Big Picture → Sleep)
+2. Снять геймпад с дока или **Home** / **B+Home**
+3. ПК должен проснуться
+
+### 6. Сон без ложного wake
+
+Wake настроен — это только половина. Чтобы **док / Home-off не будили** ПК при засыпании, ставьте sleep-хуки из этого репо (раздел ниже): `sudo ./scripts/install-sleep.sh`.
+
+---
+
 ## Проблема
 
 | Симптом | Причина |
@@ -264,18 +340,9 @@ sudo udevadm trigger
 
 ### Требования для Wake-on-USB
 
-- Донгл **всегда в USB** во сне
-- BIOS: **Wake on USB**, отключить **ErP/EuP** если USB «мертвый» в сне
-- Включить wakeup на порту донгла:
+См. раздел **[Пробуждение ПК геймпадом на Bazzite](#пробуждение-пк-геймпадом-на-bazzite-кратко)** в начале README.
 
-```bash
-# Найти устройство
-lsusb | grep -i 8bitdo
-# Пример (путь зависит от системы):
-echo enabled | sudo tee /sys/bus/usb/devices/1-2/power/wakeup
-```
-
-Цепочка wake: сон → донгл `6013` в USB → включили геймпад → PID `6012` → USB-событие → ПК просыпается.
+Кратко: донгл **всегда в USB** во сне; wake по переходу `6013` → `6012`/`310b` при включении геймпада.
 
 ---
 
@@ -284,7 +351,10 @@ echo enabled | sudo tee /sys/bus/usb/devices/1-2/power/wakeup
 ```bash
 cd 8bitdo-ultimate2-steam
 
-# Сон / док / wake
+# Wake от геймпада (если из коробки не будит)
+sudo cp udev/10-wakeup-usb-hubs.rules /etc/udev/rules.d/
+
+# Сон / док / wake без ложных пробуждений
 sudo ./scripts/install-sleep.sh
 
 # Steam: гиро и extra buttons (если ещё нет)
@@ -333,6 +403,7 @@ XInput auto-off **не** ставить отсюда (не проверено н
 │   ├── uninstall-sleep.sh
 │   └── 8bitdo-reenum.sh
 └── udev/
+    ├── 10-wakeup-usb-hubs.rules      # Wake-on-USB для root hubs
     ├── 71-8bitdo-u2w.rules
     ├── 71-8bitdo-hide-dummy.rules
     ├── 72-8bitdo-unbind-dummy.rules

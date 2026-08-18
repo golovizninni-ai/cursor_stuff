@@ -1,0 +1,7 @@
+# Включить Wake-on-USB для корневых USB-хабов (usb1, usb2, ...).
+# Нужно для пробуждения ПК геймпадом через 2.4 ГГц донгл — из коробки Bazzite этого нет.
+# Установка:
+#   sudo cp 10-wakeup-usb-hubs.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload && sudo udevadm trigger
+
+ACTION=="add|change", SUBSYSTEM=="usb", KERNEL=="usb[0-9]*", TEST=="power/wakeup", ATTR{power/wakeup}="enabled"
