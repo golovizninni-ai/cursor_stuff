@@ -90,6 +90,61 @@ done
 Если у вас wake нужно и для других состояний, повторите для PID `6012` и/или `310b`
 (заменив `6013` в скрипте).
 
+### Только донгл / геймпад + кнопка питания (без мыши и клавиатуры)
+
+**Кнопка питания** будит ПК через ACPI — её отключать не нужно и обычно нельзя.
+Цель: USB-wake **только** от 8BitDo (`2dc8`), мышь/клавиатура и dongle других производителей — **не** будят.
+
+#### Быстро (разово, до перезагрузки)
+
+```bash
+cd 8bitdo-ultimate2-steam
+sudo ./scripts/8bitdo-wakeup-only-dongle.sh
+```
+
+Скрипт: `enabled` на всех `2dc8:*`, `disabled` на остальных USB (включая root hubs).
+После этого отдельно включите wake на idle-донгле `6013` (см. блок выше), если ещё не включали.
+
+Просмотр без изменений: `sudo ./scripts/8bitdo-wakeup-only-dongle.sh --dry-run`
+
+#### Постоянно (после каждой загрузки)
+
+```bash
+sudo ./scripts/install-wakeup-only-dongle.sh
+```
+
+Снятие: `sudo systemctl disable --now 8bitdo-wakeup-only-dongle.service`
+
+#### Точечно: только известная мышь / клавиатура
+
+Если не хотите трогать все USB, найдите узлы и выключите wake вручную:
+
+```bash
+lsusb
+lsusb -t
+# пример: мышь Logitech на 3-4, клавиатура на 3-3
+echo disabled | sudo tee /sys/bus/usb/devices/3-4/power/wakeup
+echo disabled | sudo tee /sys/bus/usb/devices/3-3/power/wakeup
+# донгл 8BitDo — enabled (геймпад выключен, PID 6013)
+echo enabled | sudo tee /sys/bus/usb/devices/5-1/power/wakeup
+```
+
+Проверка, кто ещё может будить:
+
+```bash
+grep -H . /sys/bus/usb/devices/*/power/wakeup 2>/dev/null | grep ':enabled'
+```
+
+#### Ограничения
+
+| Устройство | Отключается через `power/wakeup`? |
+|------------|-----------------------------------|
+| USB-мышь / USB-клава / их dongle | Да |
+| 8BitDo 2.4 ГГц (`2dc8`) | Нет — остаётся enabled |
+| Кнопка питания корпуса | Нет — ACPI, не USB |
+| BT-клавиатура / мышь | Часто **нет** — отдельный BT-адаптер; отключите wake на его USB-узле или BT в BIOS |
+| Встроенная клава ноутбука | Может будить не через USB — смотрите `/proc/acpi/wakeup` |
+
 ### 5. Проверка
 
 1. Донгл в USB, ПК в sleep (Big Picture → Sleep)
@@ -418,8 +473,12 @@ XInput auto-off **не** ставить отсюда (не проверено н
 ├── config/8bitdo-sleep.conf
 ├── environment/99-8bitdo.conf
 ├── steam/config-snippet.vdf.example
-├── systemd/8bitdo-suspend.conf
+├── systemd/
+│   ├── 8bitdo-suspend.conf
+│   └── 8bitdo-wakeup-only-dongle.service
 ├── scripts/
+│   ├── 8bitdo-wakeup-only-dongle.sh
+│   ├── install-wakeup-only-dongle.sh
 │   ├── 8bitdo-common.sh
 │   ├── 8bitdo-pre-suspend.sh
 │   ├── 8bitdo-post-resume.sh
