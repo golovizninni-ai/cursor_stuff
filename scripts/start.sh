@@ -1,11 +1,25 @@
 #!/usr/bin/env bash
-# Запуск выбранного варианта (auth + world). Другие стеки глушатся.
+# Запуск выбранного варианта. Native = systemd, Docker = compose.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib.sh
 source "$SCRIPT_DIR/lib.sh"
 
 resolve_variant "${1:-}"
+MODE="$(read_install_mode "$VARIANT")"
+stop_other_variants "$VARIANT"
+
+if [[ "$MODE" == "docker" ]]; then
+  [[ -f "$SRC/docker-compose.yml" ]] || die "нет docker-compose.yml — переустановите scripts/install-docker.sh $VARIANT"
+  log "старт docker $VARIANT (проект $(compose_project "$VARIANT"))"
+  dc up -d
+  write_active_variant "$VARIANT"
+  "$SCRIPT_DIR/status.sh" "$VARIANT"
+  log "консоль мира: docker attach $(docker_world_container "$VARIANT")  (Ctrl+P Ctrl+Q)"
+  log "глушить: scripts/stop.sh"
+  exit 0
+fi
+
 systemd_for_variant "$VARIANT"
 
 if sc is-active --quiet "$(world_unit "$VARIANT")" 2>/dev/null; then
@@ -19,21 +33,10 @@ fi
 
 $SUDO systemctl start mysql 2>/dev/null || $SUDO systemctl start mysqld 2>/dev/null || true
 
-for v in playerbots npcbots lonewolf; do
-  if [[ "$v" == "$VARIANT" ]]; then
-    continue
-  fi
-  if [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/ac-${v}-world.service" ]] || [[ -f "/etc/systemd/system/ac-${v}-world.service" ]]; then
-    systemd_for_variant "$v"
-    sc stop "$(world_unit "$v")" "$(auth_unit "$v")" 2>/dev/null || true
-  fi
-done
-
-systemd_for_variant "$VARIANT"
 log "старт auth ($VARIANT)"
 sc start "$(auth_unit "$VARIANT")"
 sleep 1
-log "старт world ($VARIANT) — холодный старт может долго импортировать SQL"
+log "старт world ($VARIANT)"
 sc start "$(world_unit "$VARIANT")"
 write_active_variant "$VARIANT"
 "$SCRIPT_DIR/status.sh" "$VARIANT"

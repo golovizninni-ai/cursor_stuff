@@ -10,8 +10,12 @@ ACCOUNT_ID="${2:-}"
 CHAR_GUID="${3:-}"
 [[ -n "$VARIANT" && -n "$ACCOUNT_ID" && -n "$CHAR_GUID" ]] || die "usage: $0 <variant> <account_id> <character_guid>"
 variant_paths "$VARIANT"
-
-ETC="$PREFIX/etc"
+MODE="$(read_install_mode "$VARIANT")"
+if [[ "$MODE" == "docker" ]]; then
+  ETC="$SRC/env/dist/etc"
+else
+  ETC="$PREFIX/etc"
+fi
 overlay="$(mktemp)"
 cat >"$overlay" <<EOF
 AuctionHouseBot.EnableSeller = 1
@@ -32,5 +36,5 @@ for conf in "$ETC/modules/"*ahbot*.conf "$ETC/modules/"*ah-bot*.conf "$ETC/modul
   log "обновлён $conf"
 done
 rm -f "$overlay"
-[[ "$found" -eq 1 ]] || die "не найден mod_ahbot.conf — пересоберите и scripts/04-configure.sh $VARIANT"
-log "Перезапустите worldserver. Этим персонажем в игру не заходите."
+[[ "$found" -eq 1 ]] || die "не найден mod_ahbot.conf — для docker дождитесь первого старта (etc/modules), для native: 04-configure"
+log "Перезапустите мир: scripts/restart.sh $VARIANT. Этим персонажем в игру не заходите."
