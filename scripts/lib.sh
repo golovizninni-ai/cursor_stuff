@@ -47,3 +47,70 @@ mysql_root() {
 mysql_acore() {
   mysql -h127.0.0.1 -u"$MYSQL_USER" -p"$MYSQL_PASS" "$@"
 }
+
+require_variant() {
+  local variant="${1:-}"
+  [[ -n "$variant" ]] || die "usage: $0 playerbots|npcbots|lonewolf"
+  variant_paths "$variant"
+}
+
+active_variant_file() {
+  echo "$AC_ROOT/active-variant"
+}
+
+read_active_variant() {
+  local f
+  f="$(active_variant_file)"
+  if [[ -f "$f" ]]; then
+    cat "$f"
+  fi
+}
+
+write_active_variant() {
+  mkdir -p "$AC_ROOT"
+  printf '%s\n' "$1" >"$(active_variant_file)"
+}
+
+resolve_variant() {
+  local variant="${1:-}"
+  if [[ -z "$variant" ]]; then
+    variant="$(read_active_variant || true)"
+  fi
+  [[ -n "$variant" ]] || die "укажите вариант: playerbots|npcbots|lonewolf (или сначала scripts/start.sh <вариант>)"
+  variant_paths "$variant"
+  VARIANT="$variant"
+}
+
+systemd_for_variant() {
+  local variant="$1"
+  local user_unit="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/ac-${variant}-world.service"
+  local sys_unit="/etc/systemd/system/ac-${variant}-world.service"
+  if [[ "${EUID}" -eq 0 && -f "$sys_unit" ]]; then
+    SYSTEMCTL=(systemctl)
+    UNIT_SCOPE="system"
+  elif [[ -f "$user_unit" ]]; then
+    SYSTEMCTL=(systemctl --user)
+    UNIT_SCOPE="user"
+  elif [[ -f "$sys_unit" ]]; then
+    if [[ "${EUID}" -eq 0 ]]; then
+      SYSTEMCTL=(systemctl)
+    else
+      SYSTEMCTL=(sudo systemctl)
+    fi
+    UNIT_SCOPE="system"
+  else
+    die "нет systemd-юнита ac-${variant}-world. Сначала: scripts/04-configure.sh ${variant}"
+  fi
+}
+
+sc() {
+  "${SYSTEMCTL[@]}" "$@"
+}
+
+auth_unit() { echo "ac-${1}-auth.service"; }
+world_unit() { echo "ac-${1}-world.service"; }
+
+manual_ac_running() {
+  pgrep -x worldserver >/dev/null 2>&1 || pgrep -x authserver >/dev/null 2>&1
+}
+

@@ -59,7 +59,29 @@ chmod +x scripts/*.sh
 
 Кратко: либо скачать enUS client-data и `scripts/import-data.sh архив.zip`, либо `desktop/push-client-to-vm.sh` и на ВМ `scripts/extract-from-client.sh`.
 
-### Первый запуск
+### Запуск и остановка
+
+Подробно: [docs/service.md](docs/service.md).
+
+```bash
+./scripts/start.sh playerbots    # npcbots / lonewolf
+./scripts/status.sh
+./scripts/stop.sh                # сначала world (сейв), потом auth
+./scripts/restart.sh
+```
+
+Первый раз (импорт SQL, `account create`) — в tmux, не через systemd. Не используйте `kill -9` на worldserver.
+
+Оставить ВМ работать сутками:
+
+```bash
+./scripts/enable-autostart.sh playerbots
+./scripts/start.sh playerbots
+```
+
+Снять с автозагрузки: `./scripts/disable-autostart.sh` (процесс сам не убивает — для этого `stop.sh`).
+
+### Первый запуск (консоль)
 
 Не через systemd (нужна консоль):
 
@@ -83,7 +105,7 @@ account set gmlevel ИМЯ 3 -1
 ./scripts/set-realm-address.sh playerbots <IP_ВМ>
 ```
 
-Дальше можно `systemctl --user enable --now ac-playerbots-auth ac-playerbots-world` (имена юнитов: `ac-npcbots-*`, `ac-lonewolf-*`).
+Дальше можно `./scripts/start.sh playerbots`. Насовсем: `./scripts/enable-autostart.sh playerbots`.
 
 ### Профессии
 
@@ -116,6 +138,8 @@ set realmlist IP_ВМ
 
 - **3724** — логин (authserver)
 - **8085** — мир (worldserver)
+
+Перед тем как звать друзей: `./scripts/start.sh <вариант>` (или автозапуск, [docs/service.md](docs/service.md)).
 
 MySQL (3306) наружу не открывать. После проброса тот же IP пропишите в реалме: `scripts/set-realm-address.sh <вариант> <внешний_IP>`.
 

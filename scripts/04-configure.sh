@@ -125,6 +125,7 @@ SERVICE_USER=""
 if [[ "$EUID" -eq 0 ]]; then
   SERVICE_USER="User=${AC_USER}"
 fi
+other_auth=""
 other_world=""
 for v in playerbots npcbots lonewolf; do
   if [[ "$v" != "$VARIANT" ]]; then
@@ -146,6 +147,8 @@ WorkingDirectory=${PREFIX}
 ExecStart=${PREFIX}/bin/authserver
 Restart=on-failure
 RestartSec=5
+TimeoutStopSec=90
+KillSignal=SIGTERM
 LimitNOFILE=1048576
 
 [Install]
@@ -165,6 +168,8 @@ WorkingDirectory=${PREFIX}
 ExecStart=${PREFIX}/bin/worldserver
 Restart=on-failure
 RestartSec=5
+TimeoutStopSec=90
+KillSignal=SIGTERM
 LimitNOFILE=1048576
 
 [Install]
@@ -175,4 +180,6 @@ EOF
 
 log "Конфиги: $ETC"
 log "Клиентские data: $AC_DATA (dbc maps vmaps mmaps cameras)"
-log "Первый запуск worldserver — в tmux, не через systemd (создание БД и аккаунта)."
+log "Первый раз worldserver лучше в tmux (импорт SQL, account create)."
+log "Потом: scripts/start.sh ${VARIANT}   и   scripts/stop.sh"
+log "Насовсем: scripts/enable-autostart.sh ${VARIANT}"
