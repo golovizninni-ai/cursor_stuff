@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+*.log
+*.swp
+.DS_Store
+.env
+mysql-password
+/var/
+*.swp
+.DS_Store
+.env
+mysql-password
+/var/
