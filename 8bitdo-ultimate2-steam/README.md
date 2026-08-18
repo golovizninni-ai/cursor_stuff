@@ -214,6 +214,8 @@ Wake настроен — это только половина. Чтобы **д�
 
 ### 5. Права hidraw (Bazzite обычно уже есть)
 
+Нужны для гиро **после** того, как Steam уже увидел полный D-Input. Сами по себе Steam не «переинициализируют».
+
 ```bash
 sudo cp udev/71-8bitdo-u2w.rules /etc/udev/rules.d/
 sudo udevadm control --reload
@@ -250,7 +252,7 @@ USB не различает «включение» и «выключение». 
 | E. Выключить USB wakeup | Нет — сломает wake от 8BitDo |
 | HID power-off при XInput | Нет (эксперимент удалён) |
 
-Не ставьте `ATTR{authorized}="0"` на `6013`: донгл должен оставаться на шине и для Steam-hide, и для wait/wake.
+Не ставьте `ATTR{authorized}="0"` на `6013` постоянно: донгл должен оставаться на шине для wait/wake. Краткий reset `authorized` только в `8bitdo-reenum.sh` при появлении `6012`.
 
 ### Установка sleep-хуков (Bazzite, ostree)
 
@@ -310,112 +312,65 @@ RESUSPEND_DELAY=2  # пауза перед повторным suspend
 
 ---
 
-## Варианты решения бага Steam
+## Steam: гиро и extra buttons (D-Input)
 
-От простого к продвинутому. Можно комбинировать **1 + 2**, при необходимости добавить **3** или **4**.
+Steam «залипает» на первом видении порта. Hide `6013`, blacklist и unbind **на этом железе не работают**: если сразу включить D-Input (`6012`), PID не меняется повторно, Steam не перечитывает устройство. Помогает только **USB reset порта** в момент появления `6012` (как вынуть/вставить донгл).
 
-### Вариант 1 — Blacklist пустого донгла в Steam
+Цикл XInput → D-Input (`310b` → `6012`) тоже работает, потому что PID меняется. Выключение и повторный D-Input — нет.
 
-**Файлы:** `steam/config-snippet.vdf.example`, `environment/99-8bitdo.conf`
-
-Steam не должен открывать `2dc8:6013`. Первое «живое» устройство на порту — уже `6012`.
-
-```bash
-# SDL ignore (Game Mode / Bazzite)
-mkdir -p ~/.config/environment.d
-cp environment/99-8bitdo.conf ~/.config/environment.d/
-# Перелогин или reboot
-
-# Steam blacklist — вручную, Steam должен быть закрыт!
-# Добавить в ~/.local/share/Steam/config/config.vdf (или ~/.steam/steam/config/config.vdf):
-#   "controller_blacklist" "2dc8/6013"
-```
-
-**Wake PC:** не влияет (Steam не участвует в USB wake).
-
----
-
-### Вариант 2 — udev: скрыть HID у пустого донгла `6013` (рекомендуется)
-
-**Файл:** `udev/71-8bitdo-hide-dummy.rules`
-
-Донгл остаётся на USB, но `/dev/hidraw*` и `/dev/input/event*` для `6013` недоступны — Steam не на чём «залипнуть».
-
-```bash
-sudo cp udev/71-8bitdo-hide-dummy.rules /etc/udev/rules.d/
-sudo udevadm control --reload
-sudo udevadm trigger
-```
-
-Проверка (геймпад выключен): `lsusb` показывает `6013`, в Steam устройства нет.  
-Включили D-Input → сразу полный Ultimate 2 без Restart Steam.
-
-**Wake PC:** не влияет (USB-устройство на шине остаётся, wake по переходу `6013→6012` работает).
-
-Практика с железом: если подключить контроллер **сразу** в D-Input (`6012`) и Steam всё равно не показывает extended-клавиши/гиро (а переподключение/выключение-заново `6012` не помогает), причина в том, что Steam не переинициализирует обработчик, если **PID не менялся**. Решение:
-- либо сделать цикл **XInput → D-Input** (310b → 6012): после смены ID Steam обычно «просыпает» mapping;
-- либо включить **вариант 4** (Auto-reset на `6012`), чтобы форсировать disconnect/reconnect и тем самым заставить Steam перечитать устройство.
-
----
-
-### Вариант 3 — udev: unbind HID-драйвера для `6013`
-
-**Файл:** `udev/72-8bitdo-unbind-dummy.rules`
-
-Жёстче варианта 2: пустой донгл без HID-драйвера. При включении геймпада появляется новое устройство `6012`.
-
-```bash
-sudo cp udev/72-8bitdo-unbind-dummy.rules /etc/udev/rules.d/
-sudo udevadm control --reload
-sudo udevadm trigger
-```
-
-**Wake PC:** не влияет.
-
-> **Не используйте** `ATTR{authorized}="0"` на `6013` постоянно — донгл может перестать перечисляться в `6012`.
-
----
-
-### Вариант 4 — Auto-reset USB при появлении `6012`
+### Рабочий фикс — auto-reset при `6012`
 
 **Файлы:** `scripts/8bitdo-reenum.sh`, `udev/73-8bitdo-reenum.rules`
 
-Софт-версия «вынуть/вставить донгл»: Steam видит disconnect → reconnect с чистым `6012`.
+```bash
+cd 8bitdo-ultimate2-steam
+sudo ./scripts/install-reenum.sh
+```
+
+Скрипт ставит reset, **удаляет** старые `71-8bitdo-hide-dummy.rules` / `72-8bitdo-unbind-dummy.rules`, если они ещё лежат в `/etc`.
+
+Снятие: `sudo ./scripts/uninstall-reenum.sh`
+
+Минус: ~0.3 с обрыва при каждом включении в D-Input.  
+Wake: не ломает; после пробуждения будет короткий reconnect.
+
+Вручную без install-скрипта:
 
 ```bash
-sudo cp scripts/8bitdo-reenum.sh /usr/local/bin/
-sudo chmod +x /usr/local/bin/8bitdo-reenum.sh
+sudo install -m 0755 scripts/8bitdo-reenum.sh /usr/local/bin/
 sudo cp udev/73-8bitdo-reenum.rules /etc/udev/rules.d/
 sudo udevadm control --reload
 sudo udevadm trigger
 ```
 
-Минус: ~0.3 с обрыва при включении геймпада.  
-**Wake PC:** не блокирует; срабатывает уже после пробуждения, возможен короткий reconnect.
+### Ручной обход (без скрипта)
 
----
-
-### Вариант 5 — Ручной обход (без установки)
-
-1. Вынуть 2.4 ГГц донгл из USB
+1. Вынуть 2.4 ГГц донгл
 2. Включить геймпад в D-Input (`B + Home`)
 3. Вставить донгл
-4. Steam видит полный контроллер
 
-**Wake PC:** **ломает** — донгл вынут, некому слать USB wake.
+**Wake:** ломает, пока донгл вынут.
+
+### Что убрано (не ставить)
+
+| Было | Почему нет |
+|------|------------|
+| Steam `controller_blacklist` `2dc8/6013` | Steam всё равно не переинициализирует `6012` |
+| SDL ignore `6013` | То же |
+| udev hide HID `6013` | То же; сразу D-Input без смены PID |
+| udev unbind `hid-generic` на `6013` | То же |
+
+Если уже ставили пункты 1–3: `install-reenum.sh` снимет hide/unbind. Blacklist в `config.vdf` и `~/.config/environment.d/99-8bitdo.conf` уберите сами (Steam закрыт).
 
 ---
 
 ## Влияние на пробуждение ПК (Wake-on-USB)
 
-| Вариант | Wake при снятии с дока / включении геймпада |
-|---------|---------------------------------------------|
-| 1. Steam blacklist | ✅ Не влияет |
-| 2. udev hide `6013` | ✅ Не влияет |
-| 3. udev unbind `6013` | ✅ Не влияет |
-| 4. Auto-reset `6012` | ✅ Wake OK, возможен короткий reconnect после пробуждения |
-| 5. Вынуть донгл | ❌ Wake не работает |
-| Держать геймпад всегда включённым | ⚠️ Может **не** разбудить (нет перехода `6013→6012`) |
+| Что | Wake при снятии с дока / включении |
+|-----|-------------------------------------|
+| Auto-reset `6012` | OK, короткий reconnect после wake |
+| Вынуть донгл вручную | Нет, пока донгл вынут |
+| Геймпад всегда включён | Может не разбудить (нет `6013`→`6012`) |
 
 ### Требования для Wake-on-USB
 
@@ -430,36 +385,29 @@ sudo udevadm trigger
 ```bash
 cd 8bitdo-ultimate2-steam
 
+# Steam: гиро и extra buttons — единственный рабочий обход
+sudo ./scripts/install-reenum.sh
+
 # Wake от геймпада (если из коробки не будит)
 sudo cp udev/10-wakeup-usb-hubs.rules /etc/udev/rules.d/
 
-# Сон / док / wake без ложных пробуждений
+# Сон / док без ложных пробуждений
 sudo ./scripts/install-sleep.sh
 
-# Steam: гиро и extra buttons (если ещё нет)
+# hidraw, если гиро нет даже после reset (на Bazzite часто уже есть)
 sudo cp udev/71-8bitdo-u2w.rules /etc/udev/rules.d/
-sudo cp udev/71-8bitdo-hide-dummy.rules /etc/udev/rules.d/
-mkdir -p ~/.config/environment.d
-cp environment/99-8bitdo.conf ~/.config/environment.d/
-# Steam blacklist при закрытом Steam: steam/config-snippet.vdf.example
 
 sudo udevadm control --reload
 sudo udevadm trigger
-# Перелогин / reboot для environment.d
 ```
-
-Если Steam всё ещё «глупый» → добавить вариант 3 или 4.
-
-XInput auto-off **не** ставить отсюда (не проверено на железе).
 
 ---
 
 ## Проверка успеха
 
-1. Донгл в USB, геймпад **выключен** → в Steam **нет** 8BitDo (или только после фикса — ничего)
-2. `B + Home` → имя **«8BitDo Ultimate 2 Wireless Controller for PC»**
-3. Controller settings → Test Device Inputs: **PL, PR, L4, R4, gyro**
-4. **Без** Restart Steam
+1. `B + Home` (D-Input) — короткий обрыв USB, затем имя **«8BitDo Ultimate 2 Wireless Controller for PC»**
+2. Controller settings → Test Device Inputs: **PL, PR, L4, R4, gyro**
+3. **Без** Restart Steam и **без** цикла XInput → D-Input
 
 «Глупый» режим: имя **«8BitDo Ultimate 2 Wireless»** (без «Controller for PC»), нет гиро и extended buttons.
 
@@ -471,28 +419,24 @@ XInput auto-off **не** ставить отсюда (не проверено н
 8bitdo-ultimate2-steam/
 ├── README.md
 ├── config/8bitdo-sleep.conf
-├── environment/99-8bitdo.conf
-├── steam/config-snippet.vdf.example
 ├── systemd/
 │   ├── 8bitdo-suspend.conf
 │   └── 8bitdo-wakeup-only-dongle.service
 ├── scripts/
+│   ├── 8bitdo-reenum.sh
+│   ├── install-reenum.sh
+│   ├── uninstall-reenum.sh
 │   ├── 8bitdo-wakeup-only-dongle.sh
 │   ├── install-wakeup-only-dongle.sh
 │   ├── 8bitdo-common.sh
 │   ├── 8bitdo-pre-suspend.sh
 │   ├── 8bitdo-post-resume.sh
 │   ├── install-sleep.sh
-│   ├── uninstall-sleep.sh
-│   └── 8bitdo-reenum.sh
+│   └── uninstall-sleep.sh
 └── udev/
-    ├── 10-wakeup-usb-hubs.rules      # Wake-on-USB для root hubs
+    ├── 10-wakeup-usb-hubs.rules
     ├── 71-8bitdo-u2w.rules
-    ├── 71-8bitdo-hide-dummy.rules
-    ├── 72-8bitdo-unbind-dummy.rules
     └── 73-8bitdo-reenum.rules
-
-Удалено: `8bitdo-xinput-poweroff-experimental/`
 ```
 
 ---

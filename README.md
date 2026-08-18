@@ -6,4 +6,4 @@
 
 | Папка | Описание |
 |-------|----------|
-| [8bitdo-ultimate2-steam/](8bitdo-ultimate2-steam/) | Ultimate 2: D-Input в Steam, udev, **сон/док/wake** на Bazzite |
+| [8bitdo-ultimate2-steam/](8bitdo-ultimate2-steam/) | Ultimate 2: USB reset для D-Input в Steam, сон/док/wake на Bazzite |
