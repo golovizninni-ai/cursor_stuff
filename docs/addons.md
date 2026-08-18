@@ -31,14 +31,14 @@
 Ботами командуют чатом; без UI это мучение. Берите одно:
 
 - [список аддонов playerbots](https://github.com/mod-playerbots/mod-playerbots/wiki/Playerbot-Addons-and-Sub%E2%80%90Modules) — PlayerbotPanel, MultiBot и аналоги.
-- Команды без аддона: `/invite Имя`, `.playerbots bot addclass warrior`, `/p follow`, `/ra grind`, `.playerbots bot init=rare Имя`.
+- Команды без аддона: `/invite Имя`, `.playerbots bot addclass warrior`, `/p follow`, `/ra grind`, `.playerbots bot init=rare Имя`. Больше: [gm-commands.md](gm-commands.md).
 
 Не ставьте аддоны NPCBots (другой тип существ).
 
 ## Только вариант NPCBots
 
 - Аддоны из [Trinity-Bots](https://github.com/trickerer/Trinity-Bots) (раздел Addons): фреймы/кнопки найма.
-- Найм и так работает через gossip у спавнов и `.npcbot`.
+- Найм и так работает через gossip у спавнов и `.npcbot`. Шпаргалка: [gm-commands.md](gm-commands.md).
 
 ## Геймпад
 

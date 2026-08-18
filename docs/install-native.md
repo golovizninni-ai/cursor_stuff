@@ -23,7 +23,7 @@ cd ~/azerothcore-deploy
 ./scripts/enable-autostart.sh playerbots
 ```
 
-Подробнее: [service.md](service.md). Аккаунт: `account create` в консоли worldserver. AHBot: `setup-ahbot.sh`. Адрес реалма: `set-realm-address.sh`.
+Подробнее: [service.md](service.md). Аккаунт: `account create` в консоли worldserver. AHBot: `setup-ahbot.sh`. Адрес реалма: `set-realm-address.sh`. Команды в чате (`.gm on`, `.ip`, боты): [gm-commands.md](gm-commands.md).
 
 ## Опция: красивее модели и текстуры
 

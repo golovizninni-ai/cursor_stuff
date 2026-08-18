@@ -65,6 +65,14 @@ Playerbots: `.playerbots bot addclass warrior`, `/p follow`. NPCBots: gossip / `
 
 Аддоны: [docs/addons.md](docs/addons.md). ConsolePort на Bazzite: [docs/consoleport.md](docs/consoleport.md). HD-модели (опция): [docs/visuals.md](docs/visuals.md).
 
+## Админ-команды в игре
+
+В чате с точки, gmlevel 3. Аккаунт другу — консоль worldserver (`account create`).
+
+Примеры: `.gm on`, `.teleport Stormwind`, `.ip set 6`, `.playerbots bot addclass warrior`, `.npcbot spawn 70001`.
+
+Полный список под этот стек: [docs/gm-commands.md](docs/gm-commands.md).
+
 ## Клиент и порты для друзей
 
 `Data/ruRU/realmlist.wtf`: `set realmlist IP_ВМ`
