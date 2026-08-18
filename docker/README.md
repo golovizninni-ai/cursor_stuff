@@ -16,3 +16,4 @@
 На хост: 3724 и 8085. 3306/7878 не занимаем (MariaDB/Radarr).
 
 Опция на клиенте (модели/текстуры ChromieCraft): [docs/visuals.md](../docs/visuals.md).
+Опция чата ботов: Ollama на **хосте** ВМ с GPU, `scripts/enable-ollama-chat.sh playerbots` — [docs/ollama-chat.md](../docs/ollama-chat.md).

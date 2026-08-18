@@ -31,7 +31,7 @@
 Ботами командуют чатом; без UI это мучение. Берите одно:
 
 - [список аддонов playerbots](https://github.com/mod-playerbots/mod-playerbots/wiki/Playerbot-Addons-and-Sub%E2%80%90Modules) — PlayerbotPanel, MultiBot и аналоги.
-- Команды без аддона: `/invite Имя`, `.playerbots bot addclass warrior`, `/p follow`, `/ra grind`, `.playerbots bot init=rare Имя`. Больше: [gm-commands.md](gm-commands.md).
+- Команды без аддона: `/invite Имя`, `.playerbots bot addclass warrior`, `/p follow`, `/ra grind`, `.playerbots bot init=rare Имя`. Больше: [gm-commands.md](gm-commands.md). Живой чат (Ollama): [ollama-chat.md](ollama-chat.md).
 
 Не ставьте аддоны NPCBots (другой тип существ).
 

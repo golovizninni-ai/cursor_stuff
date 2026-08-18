@@ -25,6 +25,8 @@ cd ~/azerothcore-deploy
 
 Подробнее: [service.md](service.md). Аккаунт: `account create` в консоли worldserver. AHBot: `setup-ahbot.sh`. Адрес реалма: `set-realm-address.sh`. Команды в чате (`.gm on`, `.ip`, боты): [gm-commands.md](gm-commands.md).
 
+Опция чата ботов (GPU на ВМ): `scripts/enable-ollama-chat.sh playerbots` — [ollama-chat.md](ollama-chat.md).
+
 ## Опция: красивее модели и текстуры
 
 Сервер уже готов. На клиенте Bazzite можно поставить HD-патч ChromieCraft (современные модели, часть текстур) или установщик `patchmenu.exe`. К сборке на ВМ это не относится.

@@ -63,7 +63,7 @@ AHBot и IP реалма:
 
 Playerbots: `.playerbots bot addclass warrior`, `/p follow`. NPCBots: gossip / `.npcbot`. Lonewolf: без ИИ.
 
-Аддоны: [docs/addons.md](docs/addons.md). ConsolePort на Bazzite: [docs/consoleport.md](docs/consoleport.md). HD-модели (опция): [docs/visuals.md](docs/visuals.md).
+Аддоны: [docs/addons.md](docs/addons.md). ConsolePort на Bazzite: [docs/consoleport.md](docs/consoleport.md). HD-модели (опция): [docs/visuals.md](docs/visuals.md). Живой чат ботов (опция, playerbots): [docs/ollama-chat.md](docs/ollama-chat.md).
 
 ## Админ-команды в игре
 
@@ -80,6 +80,18 @@ Playerbots: `.playerbots bot addclass warrior`, `/p follow`. NPCBots: gossip / `
 Проброс: **TCP 3724** и **8085**. MySQL наружу не открывать. [docs/ports.md](docs/ports.md).
 
 Data для **native**: [desktop/README.md](desktop/README.md). Для **Docker** карты качает контейнер сам.
+
+## Опция: живой чат ботов (Ollama)
+
+Только **playerbots**. На ВМ с проброшенной **1660 Ti** (потом 3070 Ti): боты отвечают по-русски на шепот и `/p`.
+
+```bash
+./scripts/enable-ollama-chat.sh playerbots
+```
+
+1660 Ti 6 ГБ → `qwen2.5:3b`. После 3070 Ti: `OLLAMA_MODEL=qwen2.5:7b ./scripts/enable-ollama-chat.sh playerbots`.
+
+Порт 11434 наружу не открывать. Подробности: [docs/ollama-chat.md](docs/ollama-chat.md).
 
 ## Опция: красивее модели и текстуры
 
