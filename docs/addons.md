@@ -1,6 +1,6 @@
 # Популярные аддоны для 3.3.5a (AzerothCore)
 
-Ставьте сборки **именно под WotLK 3.3.5 / 12340**, не Classic и не Retail. Каталог: `Interface/AddOns/`.
+Ставьте сборки **именно под WotLK 3.3.5 / 12340**, не Classic и не Retail. Каталог: `Interface/AddOns/` **внутри Wine/Proton-префикса** на Bazzite (рядом с `Wow.exe`), не в `~/.local/share/Steam/steamapps/common` от Retail.
 
 ## Нужны почти всегда
 

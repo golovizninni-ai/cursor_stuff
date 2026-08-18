@@ -6,8 +6,3 @@ __pycache__/
 .env
 mysql-password
 /var/
-*.swp
-.DS_Store
-.env
-mysql-password
-/var/
