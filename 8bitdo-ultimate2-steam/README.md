@@ -360,7 +360,57 @@ sudo udevadm trigger
 | udev hide HID `6013` | То же; сразу D-Input без смены PID |
 | udev unbind `hid-generic` на `6013` | То же |
 
-Если уже ставили пункты 1–3: `install-reenum.sh` снимет hide/unbind. Blacklist в `config.vdf` и `~/.config/environment.d/99-8bitdo.conf` уберите сами (Steam закрыт).
+Если уже ставили пункты 1–3: см. **[Как убрать пункты 1–3](#как-убрать-пункты-13-на-всякий-случай)** ниже.
+
+### Как убрать пункты 1–3 (на всякий случай)
+
+Не трогает sleep-хуки, wake-only-dongle и auto-reset `6012`.
+
+**Скрипт** (udev + SDL-файл; blacklist — подсказка в конце):
+
+```bash
+cd 8bitdo-ultimate2-steam
+sudo ./scripts/uninstall-old-steam-workarounds.sh
+```
+
+**Вручную:**
+
+```bash
+# Пункт 2 / 3 — udev
+sudo rm -f /etc/udev/rules.d/71-8bitdo-hide-dummy.rules \
+           /etc/udev/rules.d/72-8bitdo-unbind-dummy.rules
+sudo udevadm control --reload
+sudo udevadm trigger
+
+# Пункт 1 — SDL ignore
+rm -f ~/.config/environment.d/99-8bitdo.conf
+```
+
+**Пункт 1 — Steam blacklist** (Steam полностью закрыт, затем правка):
+
+```bash
+# где лежит config (один из путей)
+ls ~/.local/share/Steam/config/config.vdf \
+   ~/.steam/steam/config/config.vdf \
+   ~/.var/app/com.valvesoftware.Steam/.local/share/Steam/config/config.vdf \
+   2>/dev/null
+
+grep -n controller_blacklist ~/.local/share/Steam/config/config.vdf
+```
+
+- Если строка `"controller_blacklist" "2dc8/6013"` — удалить её целиком.
+- Если в кавычках несколько ID через запятую — убрать только `2dc8/6013` (и лишнюю запятую).
+- Пустое `"controller_blacklist" ""` можно оставить или удалить строку.
+
+После правки `environment.d` — **перелогин или reboot**. После правки `config.vdf` — запустить Steam снова.
+
+Проверка, что старых udev нет:
+
+```bash
+ls /etc/udev/rules.d/*8bitdo* 2>/dev/null
+# ожидаемо: 73-8bitdo-reenum.rules, опционально 10-wakeup-usb-hubs.rules, 71-8bitdo-u2w.rules
+# не должно быть: 71-8bitdo-hide-dummy.rules, 72-8bitdo-unbind-dummy.rules
+```
 
 ---
 
@@ -426,6 +476,7 @@ sudo udevadm trigger
 │   ├── 8bitdo-reenum.sh
 │   ├── install-reenum.sh
 │   ├── uninstall-reenum.sh
+│   ├── uninstall-old-steam-workarounds.sh
 │   ├── 8bitdo-wakeup-only-dongle.sh
 │   ├── install-wakeup-only-dongle.sh
 │   ├── 8bitdo-common.sh
