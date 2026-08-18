@@ -17,7 +17,7 @@
 
 Логи: `journalctl --user -u ac-playerbots-world -f`
 
-Первый импорт SQL — tmux, не systemd. Консоль: `account create`. Потом `start.sh`.
+Первый импорт SQL — tmux, не systemd. Консоль: `account create`. Потом `start.sh`. Команды уже в игре: [gm-commands.md](gm-commands.md).
 
 Автозапуск: `./scripts/enable-autostart.sh playerbots` (mysql + linger + юниты).
 

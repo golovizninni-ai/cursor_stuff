@@ -30,7 +30,7 @@ RAM: *arr + 200 playerbots. На 16 ГБ снизьте `AC_AI_PLAYERBOT_MAX_RAN
 docker attach ac-playerbots-worldserver
 ```
 
-`account create ИМЯ ПАРОЛЬ` затем `account set gmlevel ИМЯ 3 -1`. Отцепиться: **Ctrl+P, Ctrl+Q** (не Ctrl+C).
+`account create ИМЯ ПАРОЛЬ` затем `account set gmlevel ИМЯ 3 -1`. Отцепиться: **Ctrl+P, Ctrl+Q** (не Ctrl+C). Дальше в игре: [gm-commands.md](gm-commands.md).
 
 ```bash
 ./scripts/set-realm-address.sh playerbots <IP_ВМ>
