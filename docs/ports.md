@@ -30,7 +30,7 @@ sudo ufw reload
 
 ## Что сделать другу
 
-В его клиенте 3.3.5a ruRU файл `Data/ruRU/realmlist.wtf`:
+В клиенте 3.3.5a ruRU (на Bazzite — файл внутри Proton/Wine prefix) `Data/ruRU/realmlist.wtf`:
 
 ```
 set realmlist 203.0.113.10

@@ -53,11 +53,11 @@ chmod +x scripts/*.sh
 - пароль БД: `~/azerothcore-servers/mysql-password`
 - карты: `~/azerothcore-data/`
 
-### Data-файлы (делает Buzzit на десктопе)
+### Data-файлы (десктоп — Bazzite / Fedora)
 
-Сервер без `dbc/maps/vmaps/mmaps` не стартует. Инструкция для ПК: [desktop/README.md](desktop/README.md).
+Сервер без `dbc/maps/vmaps/mmaps` не стартует. Клиент живёт на **Bazzite**, не на Windows. Инструкция: [desktop/README.md](desktop/README.md).
 
-Кратко: либо скачать enUS client-data AzerothCore и `scripts/import-data.sh архив.zip`, либо залить клиент на ВМ скриптом `desktop/Extract-AzerothCoreData.ps1` и прогнать `scripts/extract-from-client.sh`.
+Кратко: либо скачать enUS client-data и `scripts/import-data.sh архив.zip`, либо `desktop/push-client-to-vm.sh` и на ВМ `scripts/extract-from-client.sh`.
 
 ### Первый запуск
 

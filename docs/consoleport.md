@@ -1,18 +1,19 @@
-# ConsolePort для 3.3.5a
+# ConsolePort на Bazzite (3.3.5a)
 
-В 3.3.5 нет нативного геймпада. Нужны два компонента:
+В 3.3.5 нет нативного геймпада. На Bazzite клиент почти всегда в **Proton/Wine**, поэтому связка такая:
 
-1. Аддон **[ConsolePortLK](https://github.com/leoaviana/ConsolePortLK/releases/latest)** — UI, кольцо способностей, курсор, привязки.
-2. Маппер **[WoWpadX](https://github.com/leoaviana/WoWpadX)** (предпочтительно) или [WoWmapperX](https://github.com/leoaviana/WoWmapperX) — геймпад → клавиши, которые читает клиент.
+1. Аддон **[ConsolePortLK](https://github.com/leoaviana/ConsolePortLK/releases/latest)** — в `Interface/AddOns/` **внутри того же префикса**, что и `Wow.exe`.
+2. Маппер **[WoWpadX](https://github.com/leoaviana/WoWpadX)** — тоже Windows-exe, его запускают **тем же Proton**, что и игру.
 
-Это порт ConsolePort 1.9.17 под Lua API WotLK, не розничный ConsolePort с CurseForge.
+Это порт ConsolePort 1.9.17 под WotLK, не аддон ConsolePort с CurseForge (Retail/Classic).
 
-## Установка
+## Установка аддона
 
-1. Скачайте zip ConsolePortLK, распакуйте **все** папки (`ConsolePort`, `ConsolePortBar` и остальные) в `Interface/AddOns/`.
-2. Поставьте WoWpadX, подключите геймпад (Xbox / DualShock / DualSense / Switch Pro).
-3. Запустите сначала WoWpadX, затем `Wow.exe`.
-4. В игре аддон должен подхватить пресет. Команды:
+1. Скачайте zip ConsolePortLK, распакуйте **все** папки (`ConsolePort`, `ConsolePortBar`, …) в  
+   `.../pfx/drive_c/.../Interface/AddOns/`.
+2. Не ставьте Bartender4 / Dominos вместе с ConsolePort — конфликт панелей.
+
+В игре:
 
 ```
 /cp config
@@ -22,31 +23,47 @@
 /cp actionbar
 ```
 
-5. Отключите Bartender4 / Dominos / другие панели — иначе две схемы кнопок.
+Выключили аддон → `/reload` → снова клавиатура и мышь.
 
-Клавиатурные бинды не затираются навсегда: выключили ConsolePort → `/reload` → снова мышь и клавиатура.
+## WoWpadX + Steam на Bazzite
 
-## Рекомендации под наши варианты
+Оба exe добавьте в Steam как non-Steam, **одинаковая версия Proton**.
 
-- **Одинокий волк / NPCBots (пятёрка):** геймпад ок. Танк/хил с кольцом способностей удобнее, чем кликать 40-ман.
-- **Playerbots:** рейд через аддон ботов почти всегда мышью (инвайт, роли, init). Геймпад годится для квестов и открытого мира; перед рейдом включите мышь или держите аддон ботов на второй панели монитора.
-- Камера: правый стик в WoWpadX должен двигать мышь. Чувствительность крутите в WoWpadX, не в Windows «ускорение указателя».
-- Чат на геймпаде неудобен — для `.playerbots` / `.npcbot` оставьте клавиатуру под рукой.
+1. Сначала запустите WoWpadX, подключите геймпад, затем Wow.
+2. Launch Options WoWpadX (Properties → General):
 
-## Steam Deck / Proton
+```
+-l "Z:\path\inside\prefix\to\Wow.exe"
+```
 
-WoWpadX часто не видит `Wow.exe` в другом prefix. По очереди:
+Либо Linux-путь, если Proton его проглатывает: `-l "/var/home/USER/Games/WoW/Wow.exe"`.
 
-1. Одинаковый Proton у Wow и WoWpadX.
-2. Launch Options WoWpadX: `WoWpadX.exe -l "/path/to/Wow.exe"`
-3. У `Wow.exe`: `PROTON_REMOTE_DEBUG_CMD="/path/to/WoWpadX.exe" %command%`
-4. В раскладках Steam шаблон `Gamepad leoaviana ConsolePortLK`. Имя игры в Steam: `World of Warcraft: WotLK`.
+3. Если WoWpadX не видит процесс игры — у `Wow.exe` в Launch Options:
 
-Подробности — README ConsolePortLK.
+```
+PROTON_REMOTE_DEBUG_CMD="/var/home/USER/Games/WoWpadX/WoWpadX.exe" %command%
+```
 
-## Если ничего не биндится
+Оба должны жить в одном compatdata/prefix. На Bazzite удобно Lutris «Wine prefix» и туда же прописать exe маппера.
 
-- Клиент строго 3.3.5a 12340, не Classic.
-- Аддон включён на экране выбора персонажа.
-- После смены версии ConsolePortLK иногда чистят `WTF/` (полный сброс: `/cp resetall`).
-- Кастомные клиенты с ломаным RestrictedEnvironment аддон не переваривает.
+4. Steam Input: имя игры `World of Warcraft: WotLK`, раскладка Community `Gamepad leoaviana ConsolePortLK` (Show All Layouts). На Bazzite Steam Input включён по умолчанию, как на Deck.
+
+5. В настройках контроллера Steam для этой игры отключите «Desktop Layout», иначе правый стик уйдёт в системный курсор, а не в WoWpadX.
+
+## Игра без Steam (Lutris / Bottles)
+
+- Геймпад: в Lutris включите SDL, либо запускайте WoWpadX тем же runner/wine, что и Wow (`wine WowpadX.exe`, затем `wine Wow.exe` в том же prefix).
+- Не смешивайте system Steam Input и Lutris anti-micro, если уже крутится WoWpadX.
+
+## Под наши варианты
+
+- **Lonewolf / NPCBots:** геймпад нормален для квестов и пятёрки.
+- **Playerbots:** инвайт и `.playerbots` удобнее с клавиатуры; геймпад — открытый мир.
+- Чат и GM-команды с геймпада мучительны — клавиатура рядом.
+
+## Если не биндится
+
+- Клиент 3.3.5a **12340**, не Classic.
+- Аддон включён уже на экране персонажей.
+- После обновления ConsolePortLK: `/cp resetall` или чистый `WTF/` в префиксе.
+- Кастомные «репаки» клиента с ломаным RestrictedEnvironment аддон не переваривает.
