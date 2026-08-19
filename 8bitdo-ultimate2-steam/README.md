@@ -68,27 +68,21 @@ lsusb -t
 
 ### Минимальный таргет: пробуждение только от донгла 8BitDo Ultimate 2
 
-Если хотите максимально узко (без wake от любых USB устройств), включите `power/wakeup`
-только для USB-узла донгла, когда он в idle-режиме **`2dc8:6013`**.
+**Важно:** для wake сигнал идёт **донгл → hub → … → root hub (usbN) → XHC → CPU**.
+Если `usbN` на пути к донглу **disabled**, проснётся **только кнопка питания** (ACPI), не геймпад.
 
-1) Оставьте геймпад **выключенным** или положите на док (чтобы донгл был в `6013`).  
-2) Выполните:
+Скрипт `8bitdo-wakeup-only-dongle.sh` (актуальная версия):
+- **enabled** — все `2dc8:*` и **вся цепочка hub** от донгла до `usbN`
+- **disabled** — мышь, клава, чужие dongle и hub **не на пути** к 8BitDo
+- **enabled** — XHC в `/proc/acpi/wakeup`, если был disabled
 
 ```bash
-# Включить wakeup только для устройств VID=2dc8 PID=6013 (idle донгл)
-for d in /sys/bus/usb/devices/*; do
-  [[ -f "$d/idVendor" && -f "$d/idProduct" && -f "$d/power/wakeup" ]] || continue
-  vid="$(tr '[:upper:]' '[:lower:]' <"$d/idVendor" 2>/dev/null | tr -d '[:space:]')"
-  pid="$(tr '[:upper:]' '[:lower:]' <"$d/idProduct" 2>/dev/null | tr -d '[:space:]')"
-  if [[ "$vid" == "2dc8" && "$pid" == "6013" ]]; then
-    echo enabled | sudo tee "$d/power/wakeup" >/dev/null
-    echo "enabled: $d (2dc8:6013)"
-  fi
-done
+cd 8bitdo-ultimate2-steam
+sudo ./scripts/8bitdo-wakeup-only-dongle.sh
+sudo ./scripts/8bitdo-wakeup-check.sh   # диагностика
 ```
 
-Если у вас wake нужно и для других состояний, повторите для PID `6012` и/или `310b`
-(заменив `6013` в скрипте).
+На пути донгла должны быть **enabled** и `2dc8:6013` (или `6012`/`310b`), и `usb3` (номер ваш).
 
 ### Только донгл / геймпад + кнопка питания (без мыши и клавиатуры)
 
@@ -102,10 +96,18 @@ cd 8bitdo-ultimate2-steam
 sudo ./scripts/8bitdo-wakeup-only-dongle.sh
 ```
 
-Скрипт: `enabled` на всех `2dc8:*`, `disabled` на остальных USB (включая root hubs).
-После этого отдельно включите wake на idle-донгле `6013` (см. блок выше), если ещё не включали.
+Скрипт: `enabled` на `2dc8:*` **и hub-путь до root**, `disabled` на остальных USB-устройствах.
+Кнопка питания (ACPI) не затрагивается.
+
+```bash
+cd 8bitdo-ultimate2-steam
+sudo ./scripts/8bitdo-wakeup-only-dongle.sh
+sudo ./scripts/8bitdo-wakeup-check.sh
+```
 
 Просмотр без изменений: `sudo ./scripts/8bitdo-wakeup-only-dongle.sh --dry-run`
+
+**Симптом «будит только кнопка питания»:** старая версия скрипта **отключала root hub** — wake с USB не доходил. Обновите скрипт из репо и перезапустите (см. `8bitdo-wakeup-check.sh`).
 
 #### Постоянно (после каждой загрузки)
 
@@ -140,7 +142,8 @@ grep -H . /sys/bus/usb/devices/*/power/wakeup 2>/dev/null | grep ':enabled'
 | Устройство | Отключается через `power/wakeup`? |
 |------------|-----------------------------------|
 | USB-мышь / USB-клава / их dongle | Да |
-| 8BitDo 2.4 ГГц (`2dc8`) | Нет — остаётся enabled |
+| 8BitDo 2.4 ГГц (`2dc8`) | Нет — enabled |
+| Hub-путь донгла → `usbN` | Нет — **должен быть enabled** |
 | Кнопка питания корпуса | Нет — ACPI, не USB |
 | BT-клавиатура / мышь | Часто **нет** — отдельный BT-адаптер; отключите wake на его USB-узле или BT в BIOS |
 | Встроенная клава ноутбука | Может будить не через USB — смотрите `/proc/acpi/wakeup` |
