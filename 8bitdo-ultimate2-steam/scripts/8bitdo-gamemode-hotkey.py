@@ -203,7 +203,10 @@ def open_devices(nodes: Iterable[Path]) -> List[OpenDevice]:
         try:
             fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK)
         except OSError as exc:
-            logging.warning("cannot open %s: %s", path, exc)
+            if exc.errno == 13:
+                logging.warning("cannot open %s: %s — run install-gamemode-hotkey-udev.sh", path, exc)
+            else:
+                logging.warning("cannot open %s: %s", path, exc)
             continue
         try:
             name = device_name(fd)
@@ -393,25 +396,52 @@ class HotkeyDaemon:
                             return
 
 
+PERM_HINT = (
+    "Permission denied on /dev/input/event*. On Bazzite, group input alone is often not enough.\n"
+    "  sudo ./scripts/install-gamemode-hotkey-udev.sh\n"
+    "  ./scripts/8bitdo-gamemode-check-perms.sh\n"
+    "Then replug the controller and: systemctl --user restart 8bitdo-gamemode-hotkey.service"
+)
+
+
+def format_mode(path: Path) -> str:
+    try:
+        mode = path.stat().st_mode & 0o777
+        return oct(mode)
+    except OSError:
+        return "?"
+
+
 def describe_devices() -> int:
     nodes = get_event_nodes()
     if not nodes:
         print("No 8BitDo Ultimate 2 event devices found.")
         print("Turn on the controller (XInput or D-Input) and retry.")
         return 1
+    denied = False
     for path in nodes:
-        fd = os.open(path, os.O_RDONLY)
+        print(f"{path} mode={format_mode(path)}")
+        try:
+            fd = os.open(path, os.O_RDONLY)
+        except OSError as exc:
+            denied = True
+            print(f"  OPEN FAILED: {exc}")
+            continue
         try:
             name = device_name(fd)
             bindings = detect_bindings(fd)
         finally:
             os.close(fd)
-        print(f"{path}: {name}")
+        print(f"  name: {name}")
         print(f"  guide: {sorted(bindings.guide_codes) or 'none'}")
         print(f"  lt keys: {sorted(bindings.lt_keys) or 'none'}")
         print(f"  rt keys: {sorted(bindings.rt_keys) or 'none'}")
         print(f"  lt axes: {sorted(bindings.lt_axes) or 'none'}")
         print(f"  rt axes: {sorted(bindings.rt_axes) or 'none'}")
+    if denied:
+        print("")
+        print(PERM_HINT)
+        return 1
     return 0
 
 

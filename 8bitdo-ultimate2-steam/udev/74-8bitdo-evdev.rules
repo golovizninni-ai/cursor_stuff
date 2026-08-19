@@ -1,0 +1,6 @@
+# Права на /dev/input/event* для 8BitDo Ultimate 2 (hotkey Game Mode в Desktop).
+# На Bazzite одной группы input часто недостаточно: нужен TAG+="uaccess" для активной сессии.
+# Установка: sudo ./scripts/install-gamemode-hotkey-udev.sh
+
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{idVendor}=="2dc8", ATTRS{idProduct}=="6012", MODE="0660", GROUP="input", TAG+="uaccess"
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{idVendor}=="2dc8", ATTRS{idProduct}=="310b", MODE="0660", GROUP="input", TAG+="uaccess"

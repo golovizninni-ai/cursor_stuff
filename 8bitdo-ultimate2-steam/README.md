@@ -467,13 +467,20 @@ sudo udevadm trigger
 cd 8bitdo-ultimate2-steam
 chmod +x scripts/install-gamemode-hotkey.sh scripts/uninstall-gamemode-hotkey.sh
 ./scripts/install-gamemode-hotkey.sh
+
+# если Permission denied (типично на Bazzite — одной группы input мало):
+sudo ./scripts/install-gamemode-hotkey-udev.sh
+./scripts/8bitdo-gamemode-check-perms.sh
+# переподключите геймпад, затем:
+systemctl --user restart 8bitdo-gamemode-hotkey.service
 ```
 
-Права на `/dev/input/event*` (если `Permission denied`):
+**Почему `usermod -aG input` не помогает:** на Bazzite `/dev/input/event*` часто `root:root 0600` без группы `input`. User systemd-служба тоже не всегда наследует группы с логина. Решение — udev-правило `74-8bitdo-evdev.rules` (`TAG+="uaccess"` + `GROUP="input"`) и `SupplementaryGroups=input` в unit (ставится при `install-gamemode-hotkey.sh`).
+
+Опционально (не обязательно после udev):
 
 ```bash
 sudo usermod -aG input "$USER"
-# перелогин или reboot
 ```
 
 ### Удаление
@@ -500,7 +507,7 @@ journalctl --user -u 8bitdo-gamemode-hotkey.service -f
 
 `~/.config/8bitdo/gamemode.conf` — порог курков, `hold_ms`, путь к `return-to-gamemode`.
 
-**Файлы:** `scripts/8bitdo-gamemode-hotkey.py`, `systemd/8bitdo-gamemode-hotkey.service`, `config/8bitdo-gamemode.conf`
+**Файлы:** `scripts/8bitdo-gamemode-hotkey.py`, `systemd/8bitdo-gamemode-hotkey.service`, `config/8bitdo-gamemode.conf`, `udev/74-8bitdo-evdev.rules`, `scripts/install-gamemode-hotkey-udev.sh`, `scripts/8bitdo-gamemode-check-perms.sh`
 
 ---
 
@@ -544,7 +551,8 @@ journalctl --user -u 8bitdo-gamemode-hotkey.service -f
 └── udev/
     ├── 10-wakeup-usb-hubs.rules
     ├── 71-8bitdo-u2w.rules
-    └── 73-8bitdo-reenum.rules
+    ├── 73-8bitdo-reenum.rules
+    └── 74-8bitdo-evdev.rules
 ```
 
 ---
