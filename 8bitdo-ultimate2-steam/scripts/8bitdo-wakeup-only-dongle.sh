@@ -84,7 +84,7 @@ enable_xhc_wakeup() {
   local line name state
   [[ -r /proc/acpi/wakeup ]] || return 0
   while read -r line; do
-    [[ "$line" =~ ^[[:space:]]*(XHC[^[:space:]]*)[[:space:]]+(\\*)?(enabled|disabled) ]] || continue
+    [[ "$line" =~ ^[[:space:]]*(XHC[^[:space:]]*)[[:space:]]+([*])?(enabled|disabled) ]] || continue
     name="${BASH_REMATCH[1]}"
     state="${BASH_REMATCH[3]}"
     if [[ "$state" == "disabled" ]]; then
