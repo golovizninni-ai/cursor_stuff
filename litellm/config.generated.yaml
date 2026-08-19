@@ -1,0 +1,38 @@
+model_list:
+  - model_name: qwen-chat
+    litellm_params:
+      model: ollama_chat/qwen2.5:7b
+      api_base: http://ollama:11434
+      api_key: fake
+      timeout: 600
+  - model_name: qwen-coder
+    litellm_params:
+      model: ollama_chat/qwen2.5-coder:7b
+      api_base: http://ollama:11434
+      api_key: fake
+      timeout: 600
+  - model_name: qwen-chat-small
+    litellm_params:
+      model: ollama_chat/qwen2.5:3b
+      api_base: http://ollama:11434
+      api_key: fake
+      timeout: 600
+  - model_name: qwen-coder-small
+    litellm_params:
+      model: ollama_chat/qwen2.5-coder:3b
+      api_base: http://ollama:11434
+      api_key: fake
+      timeout: 600
+
+litellm_settings:
+  drop_params: true
+  request_timeout: 600
+
+router_settings:
+  routing_strategy: simple-shuffle
+  num_retries: 0
+  allowed_fails: 1
+  cooldown_time: 45
+  model_group_alias:
+    chat: qwen-chat
+    coder: qwen-coder
