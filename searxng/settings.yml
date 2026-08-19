@@ -1,0 +1,19 @@
+use_default_settings: true
+
+server:
+  bind_address: "0.0.0.0"
+  limiter: false
+  image_proxy: false
+  method: "GET"
+  secret_key: "change-me-please"
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  default_lang: "ru-RU"
+  formats:
+    - html
+    - json
+
+outgoing:
+  request_timeout: 8.0
