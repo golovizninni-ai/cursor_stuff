@@ -453,6 +453,57 @@ sudo udevadm trigger
 
 ---
 
+## Game Mode hotkey (Desktop)
+
+**Задача:** после cold boot в Desktop Mode включить геймпад с дивана и перейти в Game Mode **без клавиатуры/мыши**.
+
+**Комбо:** **Guide (Home) + LT + RT** — одновременно, ~0.4 с.
+
+Работает в **XInput** (`310b`) и **D-Input** (`6012`). Слушает evdev через blocking `select()` — **~0% CPU** в простое. После успешного перехода служба **завершается** и не поднимается до следующего входа в Plasma.
+
+### Установка
+
+```bash
+cd 8bitdo-ultimate2-steam
+chmod +x scripts/install-gamemode-hotkey.sh scripts/uninstall-gamemode-hotkey.sh
+./scripts/install-gamemode-hotkey.sh
+```
+
+Права на `/dev/input/event*` (если `Permission denied`):
+
+```bash
+sudo usermod -aG input "$USER"
+# перелогин или reboot
+```
+
+### Удаление
+
+```bash
+cd 8bitdo-ultimate2-steam
+./scripts/uninstall-gamemode-hotkey.sh
+```
+
+### Проверка
+
+```bash
+# найденные event-узлы и маппинг кнопок
+~/.local/bin/8bitdo-gamemode-hotkey.py --list-devices
+
+# статус и логи
+systemctl --user status 8bitdo-gamemode-hotkey.service
+journalctl --user -u 8bitdo-gamemode-hotkey.service -f
+```
+
+После комбо: `systemctl --user status` → **inactive (dead)**, exit 0. Снова активна после следующего входа в Desktop.
+
+### Конфиг
+
+`~/.config/8bitdo/gamemode.conf` — порог курков, `hold_ms`, путь к `return-to-gamemode`.
+
+**Файлы:** `scripts/8bitdo-gamemode-hotkey.py`, `systemd/8bitdo-gamemode-hotkey.service`, `config/8bitdo-gamemode.conf`
+
+---
+
 ## Проверка успеха
 
 1. `B + Home` (D-Input) — короткий обрыв USB, затем имя **«8BitDo Ultimate 2 Wireless Controller for PC»**
@@ -468,11 +519,17 @@ sudo udevadm trigger
 ```
 8bitdo-ultimate2-steam/
 ├── README.md
-├── config/8bitdo-sleep.conf
+├── config/
+│   ├── 8bitdo-sleep.conf
+│   └── 8bitdo-gamemode.conf
 ├── systemd/
 │   ├── 8bitdo-suspend.conf
-│   └── 8bitdo-wakeup-only-dongle.service
+│   ├── 8bitdo-wakeup-only-dongle.service
+│   └── 8bitdo-gamemode-hotkey.service
 ├── scripts/
+│   ├── 8bitdo-gamemode-hotkey.py
+│   ├── install-gamemode-hotkey.sh
+│   ├── uninstall-gamemode-hotkey.sh
 │   ├── 8bitdo-reenum.sh
 │   ├── install-reenum.sh
 │   ├── uninstall-reenum.sh
