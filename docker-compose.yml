@@ -1,0 +1,165 @@
+# Хаб локальных моделей. GPU нужна только ollama (и comfyui в профиле images).
+#
+#   cp .env.example .env
+#   ./scripts/install-host.sh
+#   ./scripts/render-litellm.sh
+#   docker compose up -d
+#   ./scripts/pull-models.sh core
+#
+# Профили: images (ComfyUI), code (Aider).
+
+name: local-ai
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: local-ai-ollama
+    restart: unless-stopped
+    ports:
+      - "${HUB_BIND:-0.0.0.0}:${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ./data/ollama:/root/.ollama
+      - ./modelfiles:/modelfiles:ro
+    environment:
+      TZ: ${TZ:-Europe/Moscow}
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-5m}
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_CONTEXT_LENGTH: ${OLLAMA_CONTEXT_LENGTH:-4096}
+      OLLAMA_HOST: 0.0.0.0
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+  searxng:
+    image: docker.io/searxng/searxng:latest
+    container_name: local-ai-searxng
+    restart: unless-stopped
+    ports:
+      - "${HUB_BIND:-0.0.0.0}:${SEARXNG_PORT:-8888}:8080"
+    volumes:
+      - ./searxng:/etc/searxng:rw
+    environment:
+      TZ: ${TZ:-Europe/Moscow}
+      SEARXNG_BASE_URL: http://localhost:${SEARXNG_PORT:-8888}/
+      SEARXNG_SECRET: ${SEARXNG_SECRET:-change-me-please}
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: local-ai-litellm
+    restart: unless-stopped
+    depends_on:
+      ollama:
+        condition: service_healthy
+    ports:
+      - "${HUB_BIND:-0.0.0.0}:${LITELLM_PORT:-4000}:4000"
+    volumes:
+      - ./litellm/config.generated.yaml:/app/config.yaml:ro
+    environment:
+      TZ: ${TZ:-Europe/Moscow}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-local-homelab}
+    command: ["--config", "/app/config.yaml", "--port", "4000", "--num_workers", "1"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: local-ai-webui
+    restart: unless-stopped
+    depends_on:
+      ollama:
+        condition: service_healthy
+      searxng:
+        condition: service_started
+      litellm:
+        condition: service_started
+    ports:
+      - "${HUB_BIND:-0.0.0.0}:${WEBUI_PORT:-3000}:8080"
+    volumes:
+      - ./data/open-webui:/app/backend/data
+    environment:
+      TZ: ${TZ:-Europe/Moscow}
+      WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY:-change-me-please}
+      WEBUI_AUTH: "true"
+      OLLAMA_BASE_URL: http://ollama:11434
+      OPENAI_API_BASE_URL: http://litellm:4000/v1
+      OPENAI_API_KEY: ${LITELLM_MASTER_KEY:-sk-local-homelab}
+      ENABLE_OLLAMA_API: "true"
+      ENABLE_OPENAI_API: "true"
+      ENABLE_WEB_SEARCH: "true"
+      ENABLE_RAG_WEB_SEARCH: "true"
+      RAG_WEB_SEARCH_ENGINE: searxng
+      WEB_SEARCH_ENGINE: searxng
+      SEARXNG_QUERY_URL: http://searxng:8080/search?q=<query>&format=json
+      # 14 ГБ RAM + Immich: не тянуть локальные эмбеддинги по умолчанию
+      RAG_EMBEDDING_ENGINE: ""
+      ENABLE_IMAGE_GENERATION: "false"
+      IMAGE_GENERATION_ENGINE: comfyui
+      COMFYUI_BASE_URL: http://comfyui:8188
+      AUDIO_STT_ENGINE: ""
+      AUDIO_TTS_ENGINE: ""
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  comfyui:
+    image: yanwk/comfyui-boot:cu121-slim
+    container_name: local-ai-comfyui
+    profiles: ["images"]
+    restart: unless-stopped
+    ports:
+      - "${HUB_BIND:-0.0.0.0}:${COMFYUI_PORT:-8188}:8188"
+    volumes:
+      - ./data/comfyui:/root
+    environment:
+      TZ: ${TZ:-Europe/Moscow}
+      CLI_ARGS: "--listen 0.0.0.0 --port 8188 --preview-method auto"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  agent:
+    image: paulgauthier/aider
+    container_name: local-ai-agent
+    profiles: ["code"]
+    working_dir: /work
+    volumes:
+      - ./work:/work
+    environment:
+      TZ: ${TZ:-Europe/Moscow}
+      OLLAMA_API_BASE: http://ollama:11434
+      OPENAI_API_BASE: http://litellm:4000/v1
+      OPENAI_API_KEY: ${LITELLM_MASTER_KEY:-sk-local-homelab}
+    stdin_open: true
+    tty: true
+    entrypoint: ["aider"]
+    command:
+      - --model
+      - ollama_chat/${MODEL_CODER:-qwen2.5-coder:7b}
+      - --no-auto-commits
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
