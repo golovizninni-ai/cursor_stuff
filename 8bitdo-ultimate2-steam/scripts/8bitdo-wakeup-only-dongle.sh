@@ -1,7 +1,13 @@
 #!/bin/bash
 # USB wake: геймпад 8BitDo (2dc8) + кнопка питания; мышь/клава — disabled.
-# Важно: root/intermediate hubs на пути к донглу должны быть enabled, иначе
-# wake с геймпада не дойдёт до CPU (будит только кнопка питания / ACPI).
+#
+# Цель: случайное движение на столе (проводная клава, Logitech G свисток)
+# НЕ будит ПК. Будит: 8BitDo, кнопка питания, Wake-on-LAN (не трогаем).
+#
+# НЕ трогаем: /sys/bus/pci, ethernet, ethtool WoL, сеть.
+# Только /sys/bus/usb/.../power/wakeup (+ XHC в ACPI для USB).
+#
+# Важно: hubs на пути к донглу 8BitDo — enabled (иначе wake от геймпада не дойдёт).
 #
 #   sudo ./8bitdo-wakeup-only-dongle.sh
 #   sudo ./8bitdo-wakeup-only-dongle.sh --dry-run
@@ -154,4 +160,4 @@ done
 
 enable_xhc_wakeup
 
-log "done — wake path: 2dc8 + hubs to root; other USB disabled; power button unchanged"
+log "done — USB: 2dc8+hubs enabled; keyboard/mouse/Logitech disabled; WoL/PCI untouched"

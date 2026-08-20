@@ -109,13 +109,49 @@ echo "=== systemd wakeup service ==="
 systemctl is-enabled 8bitdo-wakeup-only-dongle.service 2>/dev/null || echo "not installed"
 echo ""
 
+echo "=== мышь / клава / Logitech (должны быть disabled) ==="
+for d in /sys/bus/usb/devices/*; do
+  [[ -f "$d/idVendor" && -f "$d/power/wakeup" ]] || continue
+  vid="$(tr '[:upper:]' '[:lower:]' <"$d/idVendor" | tr -d '[:space:]')"
+  [[ "$vid" == "2dc8" ]] && continue
+  name="$(basename "$d")"
+  pid="$(tr '[:upper:]' '[:lower:]' <"$d/idProduct" 2>/dev/null | tr -d '[:space:]' || echo '?')"
+  w="$(cat "$d/power/wakeup")"
+  # частые: Logitech 046d, клавы 046d/1a2c/04d9/05ac/...
+  label=""
+  case "$vid" in
+    046d) label=" (Logitech — мышь/клава/свисток)" ;;
+    1a2c|04d9|05ac|1c4f|258a|0c45) label=" (часто клавиатура)" ;;
+  esac
+  if [[ "$w" == "enabled" ]]; then
+    echo "  BAD  $name ${vid}:${pid} wakeup=enabled${label}  ← будит от стола"
+  else
+    echo "  OK   $name ${vid}:${pid} wakeup=disabled${label}"
+  fi
+done
+echo ""
+
+echo "=== Wake-on-LAN / PCI (скрипт НЕ трогает) ==="
+echo "  USB-скрипт не меняет ethernet/PCI. WoL остаётся как в BIOS/ethtool."
+if command -v ethtool >/dev/null 2>&1; then
+  for iface in /sys/class/net/*; do
+    [[ -d "$iface/device" ]] || continue
+    ifn="$(basename "$iface")"
+    [[ "$ifn" == "lo" ]] && continue
+    wol="$(ethtool "$ifn" 2>/dev/null | grep -i wake-on || true)"
+    [[ -n "$wol" ]] && echo "  $ifn: $wol"
+  done
+else
+  echo "  (ethtool нет — смотрите BIOS Wake-on-LAN)"
+fi
+echo ""
+
 echo "=== почему «то работает, то нет» ==="
 echo "- После resume ядро сбрасывает power/wakeup → нужен ExecStopPost + udev 75-*"
 echo "- 10-wakeup-usb-hubs.rules включает все root hub обратно"
-echo "- Тест wake делайте после нового засыпания, не сразу после пробуждения (до re-apply)"
-echo "- BT-клава / встроенная клава — не USB power/wakeup, скрипт их не отключит"
+echo "- Тест: усыпить → сразу пробовать клаву/мышь (не должны будить) и Home на 8BitDo"
 echo ""
 echo "=== fix ==="
 echo "sudo $ROOT/scripts/install-wakeup-only-dongle.sh"
 echo "sudo $ROOT/scripts/8bitdo-wakeup-only-dongle.sh"
-echo "journalctl -t 8bitdo-wakeup -b   # логи re-apply"
+echo "journalctl -t 8bitdo-wakeup -b"
