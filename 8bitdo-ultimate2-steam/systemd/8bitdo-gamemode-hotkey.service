@@ -7,8 +7,8 @@ ConditionPathExists=%h/.local/bin/8bitdo-gamemode-hotkey.py
 [Service]
 Type=simple
 ExecStart=%h/.local/bin/8bitdo-gamemode-hotkey.py
-# user unit не всегда наследует группу input с логина — задаём явно
-SupplementaryGroups=input
+# Не ставить SupplementaryGroups= — user systemd не может менять группы
+# (exit 216/GROUP: Operation not permitted). Доступ к event* — через udev TAG+=uaccess.
 Restart=on-failure
 RestartSec=5
 SuccessExitStatus=0

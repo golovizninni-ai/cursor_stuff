@@ -79,7 +79,13 @@ echo ""
 echo "=== systemd user service ==="
 unit="${HOME}/.config/systemd/user/8bitdo-gamemode-hotkey.service"
 if [[ -f "$unit" ]]; then
-  grep -E 'SupplementaryGroups|ExecStart' "$unit" || true
+  if grep -q '^SupplementaryGroups=' "$unit"; then
+    echo "BAD: SupplementaryGroups= in user unit → exit 216/GROUP"
+    echo "  fix: ./scripts/install-gamemode-hotkey.sh  # reinstall without SupplementaryGroups"
+  else
+    echo "OK: no SupplementaryGroups= (correct for user units)"
+  fi
+  grep -E 'ExecStart=' "$unit" || true
 else
   echo "unit not installed: $unit"
   echo "  fix: ./scripts/install-gamemode-hotkey.sh"

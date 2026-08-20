@@ -478,13 +478,11 @@ sudo ./scripts/install-gamemode-hotkey-udev.sh
 systemctl --user restart 8bitdo-gamemode-hotkey.service
 ```
 
-**Почему `usermod -aG input` не помогает:** на Bazzite `/dev/input/event*` часто `root:root 0600` без группы `input`. User systemd-служба тоже не всегда наследует группы с логина. Решение — udev-правило `74-8bitdo-evdev.rules` (`TAG+="uaccess"` + `GROUP="input"`) и `SupplementaryGroups=input` в unit (ставится при `install-gamemode-hotkey.sh`).
+**Почему `usermod -aG input` / `SupplementaryGroups=` не помогают:**
+- на Bazzite `/dev/input/event*` часто `root:root 0600` без группы `input`;
+- **user** systemd **не может** выставить `SupplementaryGroups=` → `exit 216/GROUP`.
 
-Опционально (не обязательно после udev):
-
-```bash
-sudo usermod -aG input "$USER"
-```
+Решение — udev `74-8bitdo-evdev.rules` с `TAG+="uaccess"` (ACL для активной сессии).
 
 ### Удаление
 
