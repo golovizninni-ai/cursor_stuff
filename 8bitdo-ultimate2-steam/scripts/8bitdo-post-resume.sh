@@ -52,4 +52,12 @@ if [[ -f "$FLAG_ACTIVE" ]] && 8bitdo_is_idle; then
 fi
 
 log "stay awake (slept idle, or no matching 8BitDo state)"
+
+# После resume ядро часто сбрасывает USB power/wakeup — вернуть routing
+if [[ -x /usr/local/bin/8bitdo-wakeup-only-dongle.sh ]] \
+  && systemctl is-enabled 8bitdo-wakeup-only-dongle.service >/dev/null 2>&1; then
+  log "re-apply USB wake routing (post-resume)"
+  /usr/local/bin/8bitdo-wakeup-only-dongle.sh || true
+fi
+
 exit 0

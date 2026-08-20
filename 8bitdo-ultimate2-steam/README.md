@@ -109,13 +109,26 @@ sudo ./scripts/8bitdo-wakeup-check.sh
 
 **Симптом «будит только кнопка питания»:** старая версия скрипта **отключала root hub** — wake с USB не доходил. Обновите скрипт из репо и перезапустите (см. `8bitdo-wakeup-check.sh`).
 
+**Симптом «то только геймпад, то мышь/клава» (нестабильно):**
+
+1. После **resume** ядро часто **сбрасывает** `power/wakeup` — клава снова `enabled`, пока не отработает `ExecStopPost` / udev `75-*`.
+2. **`10-wakeup-usb-hubs.rules`** (раздел 3) **несовместим** с «только геймпад». `install-wakeup-only-dongle.sh` удаляет его.
+3. Тест: усыпить → **сразу** пробовать wake. Между «проснулся» и «снова уснул» настройки могут быть дефолтными.
+4. BT-клава — другой путь, скрипт не отключит.
+
+```bash
+sudo ./scripts/install-wakeup-only-dongle.sh
+sudo ./scripts/8bitdo-wakeup-check.sh
+journalctl -t 8bitdo-wakeup -b
+```
+
 #### Постоянно (после каждой загрузки)
 
 ```bash
 sudo ./scripts/install-wakeup-only-dongle.sh
 ```
 
-Снятие: `sudo systemctl disable --now 8bitdo-wakeup-only-dongle.service`
+Снятие: `sudo ./scripts/uninstall-wakeup-only-dongle.sh`
 
 #### Точечно: только известная мышь / клавиатура
 

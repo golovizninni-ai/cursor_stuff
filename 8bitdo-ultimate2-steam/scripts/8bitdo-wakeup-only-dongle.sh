@@ -9,17 +9,26 @@
 set -euo pipefail
 
 EIGHTBITDO_VID="2dc8"
-EIGHTBITDO_PIDS="6013 6012 310b"
 DRY_RUN=0
+LOCK_FILE="/run/lock/8bitdo-wakeup.lock"
 
 if [[ "${1:-}" == "--dry-run" ]]; then
   DRY_RUN=1
 fi
 
+# udev может вызвать несколько раз подряд (add/change PID)
+mkdir -p /run/lock
+exec 9>"$LOCK_FILE"
+if ! flock -n 9; then
+  exit 0
+fi
+sleep 0.3
+
 declare -A ENABLE_PATH=()
 
 log() {
   echo "8bitdo-wakeup: $*"
+  logger -t 8bitdo-wakeup -- "$*" 2>/dev/null || true
 }
 
 set_wakeup() {

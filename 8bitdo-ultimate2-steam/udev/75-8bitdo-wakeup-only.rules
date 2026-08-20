@@ -1,0 +1,10 @@
+# USB wake: держать мышь/клаву disabled, 8BitDo — через скрипт (hub path).
+# НЕ ставить вместе с 10-wakeup-usb-hubs.rules — тот включает все root hub на каждый udev event.
+#
+# Установка: sudo ./scripts/install-wakeup-only-dongle.sh
+
+# Листовые USB-устройства (есть idVendor), не 8BitDo — не будят
+ACTION=="add|change", SUBSYSTEM=="usb", ATTR{idVendor}=="?*", ATTR{idVendor}!="2dc8", TEST=="power/wakeup", ATTR{power/wakeup}="disabled"
+
+# 8BitDo: пересчитать enabled path (скрипт, не ATTR здесь — иначе loop)
+ACTION=="add|change", SUBSYSTEM=="usb", ATTR{idVendor}=="2dc8", RUN+="/usr/local/bin/8bitdo-wakeup-only-dongle.sh"

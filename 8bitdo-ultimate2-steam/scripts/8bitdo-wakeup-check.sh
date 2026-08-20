@@ -12,6 +12,32 @@ echo "=== lsusb -t (где донгл) ==="
 lsusb -t 2>/dev/null | head -80 || true
 echo ""
 
+echo "=== конфликтующие udev rules ==="
+for f in /etc/udev/rules.d/10-wakeup-usb-hubs.rules /etc/udev/rules.d/75-8bitdo-wakeup-only.rules; do
+  if [[ -f "$f" ]]; then
+    echo "  $f"
+  fi
+done
+if [[ -f /etc/udev/rules.d/10-wakeup-usb-hubs.rules ]]; then
+  echo "  WARN: 10-wakeup-usb-hubs.rules ломает «только геймпад» — удалите или install-wakeup-only-dongle.sh уберёт"
+fi
+if [[ ! -f /etc/udev/rules.d/75-8bitdo-wakeup-only.rules ]]; then
+  echo "  MISSING: 75-8bitdo-wakeup-only.rules — sudo ./scripts/install-wakeup-only-dongle.sh"
+fi
+echo ""
+
+echo "=== suspend hooks (нужен ExecStopPost) ==="
+for svc in systemd-suspend systemd-hybrid-sleep; do
+  f="/etc/systemd/system/${svc}.service.d/8bitdo-wakeup.conf"
+  if [[ -f "$f" ]]; then
+    echo "  $f:"
+    grep -E 'ExecStartPre|ExecStopPost|ExecStart=' "$f" | sed 's/^/    /'
+  else
+    echo "  MISSING: $f"
+  fi
+done
+echo ""
+
 echo "=== ACPI XHC (/proc/acpi/wakeup) ==="
 if [[ -r /proc/acpi/wakeup ]]; then
   grep -i xhc /proc/acpi/wakeup || echo "(нет строк XHC)"
@@ -22,6 +48,28 @@ echo ""
 
 echo "=== USB power/wakeup (enabled) ==="
 grep -H ':enabled' /sys/bus/usb/devices/*/power/wakeup 2>/dev/null || echo "(ничего enabled)"
+echo ""
+
+echo "=== enabled НЕ 8BitDo (лишние источники wake) ==="
+extra=0
+for d in /sys/bus/usb/devices/*; do
+  [[ -f "$d/power/wakeup" ]] || continue
+  [[ "$(cat "$d/power/wakeup" 2>/dev/null)" == "enabled" ]] || continue
+  name="$(basename "$d")"
+  if [[ -f "$d/idVendor" ]]; then
+    vid="$(tr '[:upper:]' '[:lower:]' <"$d/idVendor" | tr -d '[:space:]')"
+    pid="$(tr '[:upper:]' '[:lower:]' <"$d/idProduct" 2>/dev/null | tr -d '[:space:]' || echo '?')"
+    if [[ "$vid" != "2dc8" ]]; then
+      extra=1
+      echo "  $name  ${vid}:${pid}  $(lsusb -s "${name%%-*}:" 2>/dev/null | sed 's/^[^ ]* //' || echo '?')"
+    fi
+  else
+    # hub — показываем только если не на пути к 8bitdo (упрощённо: все enabled hub)
+    extra=1
+    echo "  $name  (hub/other)"
+  fi
+done
+[[ "$extra" -eq 0 ]] && echo "  (нет лишних enabled leaf 2dc8-устройств)"
 echo ""
 
 echo "=== 8BitDo nodes + hub path ==="
@@ -61,11 +109,13 @@ echo "=== systemd wakeup service ==="
 systemctl is-enabled 8bitdo-wakeup-only-dongle.service 2>/dev/null || echo "not installed"
 echo ""
 
-echo "=== рекомендации ==="
-echo "1. BIOS: Wake from USB ON, ErP/EuP OFF"
-echo "2. sudo $ROOT/scripts/8bitdo-wakeup-only-dongle.sh"
-echo "3. XHC *enabled в /proc/acpi/wakeup (скрипт включает автоматически)"
-echo "4. На пути донгл->root все hub должны быть enabled (не только 2dc8 leaf)"
-echo "5. Тест: sleep -> снять с дока / Home на геймпаде"
+echo "=== почему «то работает, то нет» ==="
+echo "- После resume ядро сбрасывает power/wakeup → нужен ExecStopPost + udev 75-*"
+echo "- 10-wakeup-usb-hubs.rules включает все root hub обратно"
+echo "- Тест wake делайте после нового засыпания, не сразу после пробуждения (до re-apply)"
+echo "- BT-клава / встроенная клава — не USB power/wakeup, скрипт их не отключит"
 echo ""
-echo "Если enabled только leaf 2dc8, а usbN disabled — wake НЕ работает (только кнопка питания)."
+echo "=== fix ==="
+echo "sudo $ROOT/scripts/install-wakeup-only-dongle.sh"
+echo "sudo $ROOT/scripts/8bitdo-wakeup-only-dongle.sh"
+echo "journalctl -t 8bitdo-wakeup -b   # логи re-apply"
