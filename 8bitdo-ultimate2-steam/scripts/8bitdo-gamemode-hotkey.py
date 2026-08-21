@@ -397,10 +397,11 @@ class HotkeyDaemon:
 
 
 PERM_HINT = (
-    "Permission denied on /dev/input/event*. On Bazzite, group input alone is often not enough.\n"
+    "Permission denied on /dev/input/event*.\n"
     "  sudo ./scripts/install-gamemode-hotkey-udev.sh\n"
+    "  sudo /usr/local/bin/8bitdo-gamemode-chmod-evdev.sh\n"
     "  ./scripts/8bitdo-gamemode-check-perms.sh\n"
-    "Then replug the controller and: systemctl --user restart 8bitdo-gamemode-hotkey.service"
+    "Expect mode 666 (crw-rw-rw-). Then: systemctl --user restart 8bitdo-gamemode-hotkey.service"
 )
 
 

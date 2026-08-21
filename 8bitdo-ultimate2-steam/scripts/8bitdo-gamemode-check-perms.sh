@@ -21,10 +21,11 @@ echo ""
 
 echo "=== 8BitDo event nodes ==="
 found=0
+denied=0
 vendor="" product="" name="" events=""
 
 flush_block() {
-  local lname ev dev
+  local lname ev dev mode
   if [[ "$vendor" != "2dc8" ]]; then
     return
   fi
@@ -37,7 +38,8 @@ flush_block() {
     [[ "$ev" == event* ]] || continue
     dev="/dev/input/$ev"
     found=1
-    echo "--- $dev ($name, pid $product) ---"
+    mode="$(stat -c '%a' "$dev" 2>/dev/null || echo '?')"
+    echo "--- $dev ($name, pid $product) mode=$mode ---"
     ls -l "$dev" 2>/dev/null || echo "  (missing)"
     if command -v getfacl >/dev/null 2>&1; then
       getfacl "$dev" 2>/dev/null | sed 's/^/  /' || true
@@ -45,7 +47,10 @@ flush_block() {
     if [[ -r "$dev" ]]; then
       echo "  read: OK"
     else
+      denied=1
       echo "  read: DENIED"
+      echo "  fix: sudo $ROOT/scripts/install-gamemode-hotkey-udev.sh"
+      echo "       sudo /usr/local/bin/8bitdo-gamemode-chmod-evdev.sh"
     fi
   done
 }
@@ -94,3 +99,12 @@ echo ""
 
 echo "=== python --list-devices ==="
 "$PY" --list-devices || true
+
+if [[ "$denied" -eq 1 ]]; then
+  echo ""
+  echo "Итог: Permission denied. Выполните:"
+  echo "  sudo $ROOT/scripts/install-gamemode-hotkey-udev.sh"
+  echo "  # включите геймпад, затем:"
+  echo "  sudo /usr/local/bin/8bitdo-gamemode-chmod-evdev.sh"
+  echo "  systemctl --user restart 8bitdo-gamemode-hotkey.service"
+fi

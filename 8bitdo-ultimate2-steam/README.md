@@ -493,16 +493,20 @@ chmod +x scripts/install-gamemode-hotkey.sh scripts/uninstall-gamemode-hotkey.sh
 
 # если Permission denied (типично на Bazzite — одной группы input мало):
 sudo ./scripts/install-gamemode-hotkey-udev.sh
+# включите геймпад, затем принудительно:
+sudo /usr/local/bin/8bitdo-gamemode-chmod-evdev.sh
 ./scripts/8bitdo-gamemode-check-perms.sh
-# переподключите геймпад, затем:
 systemctl --user restart 8bitdo-gamemode-hotkey.service
 ```
 
-**Почему `usermod -aG input` / `SupplementaryGroups=` не помогают:**
-- на Bazzite `/dev/input/event*` часто `root:root 0600` без группы `input`;
-- **user** systemd **не может** выставить `SupplementaryGroups=` → `exit 216/GROUP`.
+Ожидаемо в check: `mode=666` (или `crw-rw-rw-`) и **`read: OK`**.
 
-Решение — udev `74-8bitdo-evdev.rules` с `TAG+="uaccess"` (ACL для активной сессии).
+**Почему группа input / uaccess не хватает:**
+- user systemd **не может** `SupplementaryGroups=` → exit 216/GROUP;
+- `MODE=0660` требует группу `input`, которой у user-службы нет;
+- `uaccess` ACL иногда не вешается на все event-узлы.
+
+Решение: udev `74-8bitdo-evdev.rules` с **`MODE="0666"`** + `8bitdo-gamemode-chmod-evdev.sh` при появлении геймпада.
 
 ### Удаление
 

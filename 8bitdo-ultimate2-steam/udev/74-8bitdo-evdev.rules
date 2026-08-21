@@ -1,6 +1,17 @@
-# Права на /dev/input/event* для 8BitDo Ultimate 2 (hotkey Game Mode в Desktop).
-# На Bazzite одной группы input часто недостаточно: нужен TAG+="uaccess" для активной сессии.
+# Права /dev/input/event* для 8BitDo Ultimate 2 (Guide+LT+RT → Game Mode).
+# User systemd НЕ имеет группы input (SupplementaryGroups= → exit 216/GROUP).
+# Поэтому MODE="0666" — чтение геймпада любым процессом пользователя (HTPC OK).
+#
 # Установка: sudo ./scripts/install-gamemode-hotkey-udev.sh
 
-SUBSYSTEM=="input", KERNEL=="event*", ATTRS{idVendor}=="2dc8", ATTRS{idProduct}=="6012", MODE="0660", GROUP="input", TAG+="uaccess"
-SUBSYSTEM=="input", KERNEL=="event*", ATTRS{idVendor}=="2dc8", ATTRS{idProduct}=="310b", MODE="0660", GROUP="input", TAG+="uaccess"
+# D-Input 6012 / XInput 310b — по ENV (надежнее ATTRS на input)
+KERNEL=="event*", ENV{ID_VENDOR_ID}=="2dc8", ENV{ID_MODEL_ID}=="6012", MODE="0666", GROUP="input", TAG+="uaccess"
+KERNEL=="event*", ENV{ID_VENDOR_ID}=="2dc8", ENV{ID_MODEL_ID}=="310b", MODE="0666", GROUP="input", TAG+="uaccess"
+
+# Fallback: ATTRS по USB-родителю
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{idVendor}=="2dc8", ATTRS{idProduct}=="6012", MODE="0666", GROUP="input", TAG+="uaccess"
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{idVendor}=="2dc8", ATTRS{idProduct}=="310b", MODE="0666", GROUP="input", TAG+="uaccess"
+
+# После появления устройства — жёстко chmod (udev MODE иногда перебивают другие rules)
+ACTION=="add|change", KERNEL=="event*", ENV{ID_VENDOR_ID}=="2dc8", ENV{ID_MODEL_ID}=="6012", RUN+="/usr/local/bin/8bitdo-gamemode-chmod-evdev.sh"
+ACTION=="add|change", KERNEL=="event*", ENV{ID_VENDOR_ID}=="2dc8", ENV{ID_MODEL_ID}=="310b", RUN+="/usr/local/bin/8bitdo-gamemode-chmod-evdev.sh"
