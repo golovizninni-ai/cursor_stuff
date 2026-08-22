@@ -16,7 +16,7 @@ sudo ./scripts/install-all.sh
 
 Опции: `--dry-run`, `--no-44`, `--force-44`. Детект: `./scripts/8bitdo-detect-bazzite.sh`
 
-После reboot smoke-test: wake, sleep/док, D-Input (B+Home), **Start+Select+LB+RB** в Desktop.
+После reboot smoke-test: wake, sleep/док, D-Input (B+Home), **Start+Select+LB+RB** (Monitor) / **+LT+RT** (TV).
 
 ---
 
