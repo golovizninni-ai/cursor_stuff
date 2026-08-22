@@ -1,15 +1,34 @@
 #!/bin/bash
-# Снять HDR nudge hooks (sessions.d + binaries).
 set -euo pipefail
 
 MARKER_BEGIN="# BEGIN 8bitdo-hdr-nudge"
 MARKER_END="# END 8bitdo-hdr-nudge"
 
 if [[ "$(id -u)" -eq 0 && -n "${SUDO_USER:-}" ]]; then
+  REAL_USER="$SUDO_USER"
   USER_HOME="$(getent passwd "$SUDO_USER" | cut -d: -f6)"
+  USER_UID="$(id -u "$SUDO_USER")"
 else
+  REAL_USER="$USER"
   USER_HOME="$HOME"
+  USER_UID="$(id -u)"
 fi
+RUNTIME_DIR="/run/user/${USER_UID}"
+
+run_user() {
+  if [[ "$(id -u)" -eq 0 ]]; then
+    sudo -u "$REAL_USER" -H \
+      env HOME="$USER_HOME" XDG_RUNTIME_DIR="$RUNTIME_DIR" \
+      DBUS_SESSION_BUS_ADDRESS="unix:path=${RUNTIME_DIR}/bus" \
+      "$@"
+  else
+    "$@"
+  fi
+}
+
+run_user systemctl --user disable --now 8bitdo-hdr-nudge.service 2>/dev/null || true
+rm -f "${USER_HOME}/.config/systemd/user/8bitdo-hdr-nudge.service"
+run_user systemctl --user daemon-reload 2>/dev/null || true
 
 strip_marker_block() {
   local target="$1"
@@ -27,15 +46,6 @@ strip_marker_block() {
     else
       mv "$tmp" "$target"
     fi
-    return 0
-  fi
-  # старая установка без маркеров: файл только наш snippet
-  if grep -q "8bitdo-hdr-nudge" "$target" && ! grep -qvE '^(#|$|[[:space:]])' "$target"; then
-    # слишком грубо — лучше: если весь файл совпадает по ключевым строкам
-    if grep -q "post_gamescope_start" "$target" && grep -q "8bitdo-hdr-nudge" "$target" \
-       && ! grep -qE 'GAMESCOPECMD|STEAMCMD|CLIENTCMD|OUTPUT_CONNECTOR' "$target"; then
-      rm -f "$target"
-    fi
   fi
 }
 
@@ -44,8 +54,12 @@ for client in steam ogui-steam; do
 done
 
 rm -f /usr/local/bin/8bitdo-hdr-nudge.sh \
-      "${USER_HOME}/.local/bin/8bitdo-hdr-nudge.sh"
+      /usr/local/bin/8bitdo-hdr-nudge-daemon.sh \
+      /usr/local/bin/8bitdo-hdr-toggle.py \
+      "${USER_HOME}/.local/bin/8bitdo-hdr-nudge.sh" \
+      "${USER_HOME}/.local/bin/8bitdo-hdr-nudge-daemon.sh" \
+      "${USER_HOME}/.local/bin/8bitdo-hdr-toggle.py"
 
-echo "Removed HDR nudge hooks."
-echo "Config left: ~/.config/environment.d/20-8bitdo-hdr.conf (удалите вручную при желании)."
-echo "Force Composite в Steam Developer options тоже вручную, если включали."
+echo "Removed HDR nudge daemon + hooks."
+echo "Config left: ~/.config/environment.d/20-8bitdo-hdr.conf"
+echo "linger не трогаем (loginctl disable-linger $REAL_USER — по желанию)."

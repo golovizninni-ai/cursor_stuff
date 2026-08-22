@@ -1,0 +1,15 @@
+[Unit]
+Description=8BitDo HDR washout nudge (gamescope watcher)
+After=graphical-session.target default.target
+# Linger: работает и после logout Desktop → Game Mode
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/8bitdo-hdr-nudge-daemon.sh
+Restart=on-failure
+RestartSec=3
+# не убивать при logout desktop (если unit в user manager с linger)
+KillMode=process
+
+[Install]
+WantedBy=default.target

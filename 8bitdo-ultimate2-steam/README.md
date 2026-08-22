@@ -29,21 +29,26 @@ Quirk Steam/gamescope: после Desktop → Game Mode картинка на Т
 
 **«Принудительная компоновка» (Force Composite)** этот эффект **не** даёт — можно не включать.
 
-### Авто-nudge (тот же HDR toggle)
+### Авто-nudge (демон)
 
-После старта gamescope скрипт делает off→on через X11-атом `GAMESCOPE_DISPLAY_HDR_ENABLED` (2 прохода):
+Раньше hook `post_gamescope_start` часто **не вызывался** — поэтому «ничего не происходило».  
+Теперь ставится **user-служба**, которая ловит каждый новый `gamescope` и делает off→on через Python/X11 (без xprop).
 
 ```bash
 cd 8bitdo-ultimate2-steam
-git pull   # если уже клонировал
-./scripts/install-hdr-workaround.sh
-# перезайди в Game Mode; через ~15–25 с картинка должна «щёлкнуть»
-# лог: ~/.cache/8bitdo-hdr-nudge.log
+git pull
+sudo ./scripts/install-hdr-workaround.sh   # нужен sudo: linger + /usr/local/bin
+# в Desktop:
+systemctl --user status 8bitdo-hdr-nudge.service
+# после входа в Game Mode смотри лог (SSH/TTY):
+tail -f ~/.cache/8bitdo-hdr-nudge.log
 ```
 
-Конфиг: `~/.config/environment.d/20-8bitdo-hdr.conf` (`HDR_NUDGE=0` — выключить). Снятие: `./scripts/uninstall-hdr-workaround.sh`.
+Через ~20–30 с после старта Game Mode в логе должны быть строки `HDR` / `python toggle OK`, картинка «щёлкнет».
 
-В `install-all.sh` **не** входит — отдельно от геймпада.
+Конфиг: `~/.config/environment.d/20-8bitdo-hdr.conf`. Снятие: `./scripts/uninstall-hdr-workaround.sh`.
+
+Если лог пустой — служба не жива после logout (`loginctl show-user $USER | grep Linger` → `yes`).
 
 ---
 
@@ -624,7 +629,8 @@ journalctl --user -u 8bitdo-gamemode-hotkey.service -f
 ├── systemd/
 │   ├── 8bitdo-suspend.conf
 │   ├── 8bitdo-wakeup-only-dongle.service
-│   └── 8bitdo-gamemode-hotkey.service
+│   ├── 8bitdo-gamemode-hotkey.service
+│   └── 8bitdo-hdr-nudge.service
 ├── scripts/
 │   ├── install-all.sh              # всё в одном (43+44)
 │   ├── uninstall-all.sh
@@ -633,6 +639,8 @@ journalctl --user -u 8bitdo-gamemode-hotkey.service -f
 │   ├── install-gamemode-hotkey.sh
 │   ├── uninstall-gamemode-hotkey.sh
 │   ├── 8bitdo-hdr-nudge.sh
+│   ├── 8bitdo-hdr-nudge-daemon.sh
+│   ├── 8bitdo-hdr-toggle.py
 │   ├── install-hdr-workaround.sh
 │   ├── uninstall-hdr-workaround.sh
 │   ├── 8bitdo-reenum.sh
