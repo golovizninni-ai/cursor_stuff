@@ -11,6 +11,7 @@ import fcntl
 import logging
 import os
 import select
+import shutil
 import struct
 import subprocess
 import sys
@@ -18,6 +19,10 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Set, Tuple
+
+
+def shutil_which(cmd: str) -> Optional[str]:
+    return shutil.which(cmd)
 
 EV_KEY = 0x01
 EV_ABS = 0x03
@@ -69,8 +74,8 @@ def load_config() -> dict:
     defaults = {
         "trigger_threshold": "128",
         "hold_ms": "400",
-        "switch_command": "/usr/bin/return-to-gamemode",
-        "fallback_command": "/usr/bin/steamos-session-select",
+        "switch_command": "/usr/local/bin/8bitdo-switch-gamemode",
+        "fallback_command": "/usr/bin/return-to-gamemode",
     }
     for path in DEFAULT_CONFIG_PATHS:
         if path.is_file():
@@ -310,19 +315,40 @@ class HotkeyDaemon:
         return (time.monotonic() - self.state.hold_start) * 1000 >= self.hold_ms
 
     def switch_to_gamemode(self) -> None:
+        # (cmd, args...) — Bazzite 44: steamosctl; 43: return-to-gamemode
+        candidates: List[List[str]] = []
         primary = self.config["switch_command"]
         fallback = self.config["fallback_command"]
-        for cmd in (primary, fallback):
-            if not cmd:
+        if primary:
+            candidates.append([primary])
+        if fallback and fallback != primary:
+            candidates.append([fallback])
+        candidates.extend(
+            [
+                ["/usr/local/bin/8bitdo-switch-gamemode"],
+                ["steamosctl", "switch-to-game-mode"],
+                ["/usr/bin/return-to-gamemode"],
+                ["/usr/bin/steamos-session-select", "gamescope"],
+            ]
+        )
+        seen: Set[str] = set()
+        for argv in candidates:
+            key = " ".join(argv)
+            if key in seen:
                 continue
-            path = Path(cmd)
-            if not path.is_file():
-                logging.warning("command missing: %s", cmd)
+            seen.add(key)
+            bin_path = argv[0]
+            if "/" in bin_path:
+                if not Path(bin_path).is_file():
+                    continue
+            elif not shutil_which(bin_path):
                 continue
-            logging.info("switching to Game Mode: %s", cmd)
-            subprocess.Popen([cmd], start_new_session=True)
+            logging.info("switching to Game Mode: %s", key)
+            subprocess.Popen(argv, start_new_session=True)
             return
-        raise RuntimeError("no switch command found (return-to-gamemode / steamos-session-select)")
+        raise RuntimeError(
+            "no Game Mode switch found (install steamos-manager / compat/bazzite44)"
+        )
 
     def run(self) -> None:
         if not self.devices:
@@ -463,6 +489,11 @@ def main() -> int:
     if subprocess.run(["pgrep", "-x", "gamescope"], capture_output=True).returncode == 0:
         logging.info("gamescope active; nothing to do")
         return 0
+    # Bazzite 44: иногда gamescope живёт как gamescope-wl / session helper
+    if subprocess.run(["pgrep", "-f", "gamescope-session"], capture_output=True).returncode == 0:
+        if not os.environ.get("DESKTOP_SESSION", "").lower().startswith(("plasma", "gnome")):
+            logging.info("gamescope-session active; nothing to do")
+            return 0
 
     config = load_config()
     daemon = HotkeyDaemon(config)

@@ -536,6 +536,31 @@ journalctl --user -u 8bitdo-gamemode-hotkey.service -f
 
 ---
 
+## Bazzite 44 (Deck / HTPC)
+
+На **Deck 44** новый стек: SteamOS-Manager + **InputPlumber**. Что важно для наших скриптов:
+
+| Скрипт | На 44 |
+|--------|--------|
+| Sleep / wake / re-enum | Обычно **без изменений** |
+| Guide+LT+RT | Нужен **`steamosctl`**; лучше wrapper |
+| Steam / D-Input / hotkey evdev | **InputPlumber** может **дублировать** 8BitDo → нужен ignore |
+
+```bash
+# проверить образ
+./scripts/8bitdo-detect-bazzite.sh
+
+# после обновления на 44:
+sudo ./compat/bazzite44/scripts/install-bazzite44.sh
+# reboot рекомендуется
+```
+
+Подробности: [compat/bazzite44/README.md](compat/bazzite44/README.md)
+
+Перед апдейтом: `sudo ostree admin pin 0`
+
+---
+
 ## Проверка успеха
 
 1. `B + Home` (D-Input) — короткий обрыв USB, затем имя **«8BitDo Ultimate 2 Wireless Controller for PC»**
