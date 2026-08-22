@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ShadowBlip/InputPlumber/main/rootfs/usr/share/inputplumber/schema/composite_device_v1.json
+# Bazzite 44: не захватывать 8BitDo Ultimate 2 (XInput 310b).
+version: 1
+kind: CompositeDevice
+name: 8BitDo Ultimate 2 Wireless (XInput) — ignore
+matches: []
+source_devices:
+  - group: gamepad
+    ignore: true
+    evdev:
+      vendor_id: "2dc8"
+      product_id: "310b"

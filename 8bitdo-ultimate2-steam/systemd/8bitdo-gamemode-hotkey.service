@@ -1,0 +1,21 @@
+[Unit]
+Description=8BitDo Ultimate 2: Start+Select+LB/RB→Monitor or LT/RT→TV Game Mode
+After=graphical-session.target
+PartOf=graphical-session.target
+ConditionPathExists=%h/.local/bin/8bitdo-gamemode-hotkey.py
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/8bitdo-gamemode-hotkey.py
+# Не ставить SupplementaryGroups= — exit 216/GROUP. Права через udev MODE 0666.
+#
+# По умолчанию KillMode=control-group убивает дочерний switch при выходе hotkey —
+# из‑за этого Game Mode не стартовал из службы (из терминала работало).
+KillMode=process
+Restart=on-failure
+RestartSec=5
+SuccessExitStatus=0
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=graphical-session.target

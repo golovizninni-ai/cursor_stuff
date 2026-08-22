@@ -1,0 +1,11 @@
+[Unit]
+Description=USB wake only for 8BitDo controller (disable mouse/keyboard USB wake)
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/8bitdo-wakeup-only-dongle.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

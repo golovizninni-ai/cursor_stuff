@@ -1,0 +1,6 @@
+# USB reset порта при появлении D-Input (PID 6012).
+# Единственный рабочий обход: Steam не перечитывает 6012 без disconnect.
+# Требует /usr/local/bin/8bitdo-reenum.sh
+
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="2dc8", ATTR{idProduct}=="6012", \
+  RUN+="/usr/local/bin/8bitdo-reenum.sh %p"
