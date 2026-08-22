@@ -22,28 +22,28 @@ sudo ./scripts/install-all.sh
 
 ## HDR выбелен / «радуга» при входе в Game Mode
 
-Частый quirk Steam/gamescope (в доках Bazzite — [Rainbow Display](https://docs.bazzite.gg/Handheld_and_HTPC_edition/quirks/)): после Desktop → Game Mode картинка на ТВ/мониторе **выцветшая / выбеленная**. QAM → HDR off → on возвращает нормальный HDR. На ТВ при HDR off картинка может быть сверхконтрастной; на мониторе SDR обычно выглядит нормально.
+Quirk Steam/gamescope: после Desktop → Game Mode картинка на ТВ/мониторе **выцветшая / выбеленная**.  
 
-### Что сделать вручную (главный фикс)
+**Надёжный фикс (у тебя 100%):** боковое меню (QAM) → **Display → HDR** выкл → вкл.  
+На ТВ при HDR off часто сверхконтраст; на мониторе SDR обычно нормальный.
 
-1. Game Mode → **Settings → System → Enable developer mode**
-2. **Developer → Force Composite** — включить
-3. Если снова выбелило: боковое меню (QAM) → **Display → HDR** выкл → вкл
+**«Принудительная компоновка» (Force Composite)** этот эффект **не** даёт — можно не включать.
 
-### Авто-nudge (опционально)
+### Авто-nudge (тот же HDR toggle)
 
-После старта gamescope скрипт выставляет те же X11-атомы, что Steam (`GAMESCOPE_COMPOSITE_FORCE`, toggle `GAMESCOPE_DISPLAY_HDR_ENABLED`):
+После старта gamescope скрипт делает off→on через X11-атом `GAMESCOPE_DISPLAY_HDR_ENABLED` (2 прохода):
 
 ```bash
 cd 8bitdo-ultimate2-steam
+git pull   # если уже клонировал
 ./scripts/install-hdr-workaround.sh
-# перезайдите в Game Mode
+# перезайди в Game Mode; через ~15–25 с картинка должна «щёлкнуть»
 # лог: ~/.cache/8bitdo-hdr-nudge.log
 ```
 
 Конфиг: `~/.config/environment.d/20-8bitdo-hdr.conf` (`HDR_NUDGE=0` — выключить). Снятие: `./scripts/uninstall-hdr-workaround.sh`.
 
-В `install-all.sh` **не** входит — это отдельно от геймпада.
+В `install-all.sh` **не** входит — отдельно от геймпада.
 
 ---
 
