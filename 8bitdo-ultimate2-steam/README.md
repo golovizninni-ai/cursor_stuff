@@ -498,11 +498,16 @@ sudo udevadm trigger
 
 **Задача:** после cold boot в Desktop Mode включить геймпад с дивана и перейти в Game Mode **без клавиатуры/мыши**.
 
-**Комбо:** **Start (+) + Select (−) + LB + RB** — одновременно, ~0.4 с.
+**Комбо (как ярлыки на рабочем столе):**
 
-Guide/Home **не** используем: Steam часто перехватывает. Триггеры тоже не используем (аналог, разный маппинг X/D-Input).
+| Комбо | Действие |
+|-------|----------|
+| **Start + Select + LB + RB** | GameMode **Monitor** (`OUTPUT_CONNECTOR=DP-1`) |
+| **Start + Select + LT + RT** | GameMode **TV** (`OUTPUT_CONNECTOR=DP-3`) |
 
-Работает в **XInput** (`310b`) и **D-Input** (`6012`). Слушает evdev через blocking `select()` — **~0% CPU** в простое. После успешного перехода служба **завершается** и не поднимается до следующего входа в Plasma.
+Запуск как ваши `.desktop`: запись в `~/.config/environment.d/10-gamescope-session.conf` + `systemctl start return-to-gamemode.service`.
+
+Работает в **XInput** и **D-Input**. После срабатывания служба завершается до следующего входа в Plasma.
 
 ### Установка
 
