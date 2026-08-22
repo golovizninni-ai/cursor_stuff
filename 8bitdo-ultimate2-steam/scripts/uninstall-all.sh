@@ -49,17 +49,20 @@ if [[ -n "$REAL_USER" && -n "$USER_HOME" ]]; then
     env HOME="$USER_HOME" XDG_RUNTIME_DIR="$RUNTIME_DIR" \
     DBUS_SESSION_BUS_ADDRESS="unix:path=${RUNTIME_DIR}/bus" \
     bash "$ROOT/scripts/uninstall-gamemode-hotkey.sh" || true
-  echo "=== uninstall HDR nudge (если ставили) ==="
-  sudo -u "$REAL_USER" -H \
-    env HOME="$USER_HOME" XDG_RUNTIME_DIR="$RUNTIME_DIR" \
-    bash "$ROOT/scripts/uninstall-hdr-workaround.sh" || true
+  # следы отменённого HDR-nudge (если когда-то ставили)
+  if [[ -x "$ROOT/scripts/cleanup-hdr-leftovers.sh" ]]; then
+    bash "$ROOT/scripts/cleanup-hdr-leftovers.sh" || true
+  fi
 else
   echo "WARN: не удалось снять user-службу (нет SUDO_USER). Снимите вручную:"
   echo "  ./scripts/uninstall-gamemode-hotkey.sh"
-  echo "  ./scripts/uninstall-hdr-workaround.sh"
+  echo "  ./scripts/cleanup-hdr-leftovers.sh"
 fi
 
-rm -f /usr/local/bin/8bitdo-switch-gamemode /usr/local/bin/8bitdo-hdr-nudge.sh
+rm -f /usr/local/bin/8bitdo-switch-gamemode \
+      /usr/local/bin/8bitdo-hdr-nudge.sh \
+      /usr/local/bin/8bitdo-hdr-nudge-daemon.sh \
+      /usr/local/bin/8bitdo-hdr-toggle.py
 
 systemctl daemon-reload || true
 

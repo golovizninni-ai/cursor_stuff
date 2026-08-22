@@ -20,38 +20,6 @@ sudo ./scripts/install-all.sh
 
 ---
 
-## HDR выбелен / «радуга» при входе в Game Mode
-
-Quirk Steam/gamescope: после Desktop → Game Mode картинка на ТВ/мониторе **выцветшая / выбеленная**.  
-
-**Надёжный фикс (у тебя 100%):** боковое меню (QAM) → **Display → HDR** выкл → вкл.  
-На ТВ при HDR off часто сверхконтраст; на мониторе SDR обычно нормальный.
-
-**«Принудительная компоновка» (Force Composite)** этот эффект **не** даёт — можно не включать.
-
-### Авто-nudge (демон)
-
-Раньше hook `post_gamescope_start` часто **не вызывался** — поэтому «ничего не происходило».  
-Теперь ставится **user-служба**, которая ловит каждый новый `gamescope` и делает off→on через Python/X11 (без xprop).
-
-```bash
-cd 8bitdo-ultimate2-steam
-git pull
-sudo ./scripts/install-hdr-workaround.sh   # нужен sudo: linger + /usr/local/bin
-# в Desktop:
-systemctl --user status 8bitdo-hdr-nudge.service
-# после входа в Game Mode смотри лог (SSH/TTY):
-tail -f ~/.cache/8bitdo-hdr-nudge.log
-```
-
-Через ~20–30 с после старта Game Mode в логе должны быть строки `HDR` / `python toggle OK`, картинка «щёлкнет».
-
-Конфиг: `~/.config/environment.d/20-8bitdo-hdr.conf`. Снятие: `./scripts/uninstall-hdr-workaround.sh`.
-
-Если лог пустой — служба не жива после logout (`loginctl show-user $USER | grep Linger` → `yes`).
-
----
-
 ## Пробуждение ПК геймпадом на Bazzite (кратко)
 
 Из коробки Bazzite/Linux **не** будит 8BitDo по 2.4 ГГц донгл: у донгла нет remote-wakeup как у клавиатуры. **Bluetooth** кнопкой геймпада ПК тоже обычно **не** будит — рабочий путь: **донгл в USB**, wake по USB-событию на шине (вкл/выкл геймпада, смена PID `6013` ↔ `6012`/`310b`).
