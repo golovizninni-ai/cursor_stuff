@@ -47,8 +47,15 @@ start_gamemode() {
   # Как на Desktop ярлыках пользователя
   if systemctl cat return-to-gamemode.service >/dev/null 2>&1; then
     log "systemctl start return-to-gamemode.service"
-    systemctl start return-to-gamemode.service
-    return 0
+    # синхронно, с логом
+    if systemctl start return-to-gamemode.service; then
+      log "return-to-gamemode.service started OK"
+      systemctl --no-pager -l status return-to-gamemode.service 2>&1 | head -20 | while read -r line; do
+        log "status: $line"
+      done || true
+      return 0
+    fi
+    log "systemctl start FAILED: $(systemctl --no-pager -l status return-to-gamemode.service 2>&1 | tail -5)"
   fi
   if systemctl --user cat return-to-gamemode.service >/dev/null 2>&1; then
     log "systemctl --user start return-to-gamemode.service"

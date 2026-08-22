@@ -7,8 +7,11 @@ ConditionPathExists=%h/.local/bin/8bitdo-gamemode-hotkey.py
 [Service]
 Type=simple
 ExecStart=%h/.local/bin/8bitdo-gamemode-hotkey.py
-# Не ставить SupplementaryGroups= — user systemd не может менять группы
-# (exit 216/GROUP: Operation not permitted). Доступ к event* — через udev TAG+=uaccess.
+# Не ставить SupplementaryGroups= — exit 216/GROUP. Права через udev MODE 0666.
+#
+# По умолчанию KillMode=control-group убивает дочерний switch при выходе hotkey —
+# из‑за этого Game Mode не стартовал из службы (из терминала работало).
+KillMode=process
 Restart=on-failure
 RestartSec=5
 SuccessExitStatus=0

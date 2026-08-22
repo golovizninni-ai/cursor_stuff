@@ -388,36 +388,79 @@ class HotkeyDaemon:
             return self.state.armed
         return None
 
-    def switch_to_gamemode(self, target: str) -> None:
+    def switch_to_gamemode(self, target: str) -> bool:
+        """Return True if switch command succeeded."""
         cmd = self.config["switch_command"]
         argv = [cmd, target]
+        log_path = Path.home() / ".cache" / "8bitdo-gamemode-last.log"
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+
+        def log_both(msg: str) -> None:
+            logging.info("%s", msg)
+            with log_path.open("a", encoding="utf-8") as fh:
+                fh.write(msg + "\n")
+
+        log_both(f"=== switch target={target} ===")
+
         if Path(cmd).is_file() or shutil_which(cmd):
-            logging.info("switching to Game Mode (%s): %s", target, " ".join(argv))
-            subprocess.Popen(argv, start_new_session=True)
-            return
-        # Inline fallback matching user's .desktop files
+            log_both(f"exec: {' '.join(argv)}")
+            try:
+                # Ждём завершения — иначе systemd KillMode мог убивать Popen-ребёнка
+                proc = subprocess.run(
+                    argv,
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                    check=False,
+                )
+            except subprocess.TimeoutExpired:
+                log_both("ERROR: switch timed out after 60s")
+                return False
+            if proc.stdout:
+                log_both(f"stdout: {proc.stdout.strip()}")
+            if proc.stderr:
+                log_both(f"stderr: {proc.stderr.strip()}")
+            log_both(f"exit={proc.returncode}")
+            return proc.returncode == 0
+
+        # Inline fallback = точная логика ярлыков на рабочем столе
         connector = (
             self.config["monitor_connector"] if target == "monitor" else self.config["tv_connector"]
         )
-        env_file = expand_user("~/.config/environment.d/10-gamescope-session.conf")
+        env_file = Path.home() / ".config/environment.d/10-gamescope-session.conf"
         env_file.parent.mkdir(parents=True, exist_ok=True)
         env_file.write_text(f"OUTPUT_CONNECTOR={connector}\n", encoding="utf-8")
-        logging.info("wrote %s OUTPUT_CONNECTOR=%s", env_file, connector)
+        log_both(f"wrote {env_file} OUTPUT_CONNECTOR={connector}")
+
+        desktop_cmd = (
+            f"echo 'OUTPUT_CONNECTOR={connector}' > {env_file} && "
+            "systemctl start return-to-gamemode.service"
+        )
         for args in (
+            ["bash", "-c", desktop_cmd],
             ["systemctl", "start", "return-to-gamemode.service"],
             ["systemctl", "--user", "start", "return-to-gamemode.service"],
             ["steamosctl", "switch-to-game-mode"],
             ["/usr/bin/return-to-gamemode"],
         ):
             bin0 = args[0]
-            if "/" in bin0 and not Path(bin0).is_file():
+            if bin0 not in ("bash",) and "/" in bin0 and not Path(bin0).is_file():
                 continue
-            if "/" not in bin0 and not shutil_which(bin0):
+            if bin0 not in ("bash",) and "/" not in bin0 and not shutil_which(bin0):
                 continue
-            logging.info("fallback exec: %s", " ".join(args))
-            subprocess.Popen(args, start_new_session=True)
-            return
-        raise RuntimeError("cannot start Game Mode (no return-to-gamemode.service / steamosctl)")
+            log_both(f"fallback: {' '.join(args)}")
+            try:
+                proc = subprocess.run(args, capture_output=True, text=True, timeout=60, check=False)
+            except subprocess.TimeoutExpired:
+                log_both("ERROR: fallback timed out")
+                continue
+            if proc.stderr:
+                log_both(f"stderr: {proc.stderr.strip()}")
+            log_both(f"exit={proc.returncode}")
+            if proc.returncode == 0:
+                return True
+        log_both("ERROR: all switch methods failed")
+        return False
 
     def run(self) -> None:
         if not self.devices:
@@ -426,9 +469,14 @@ class HotkeyDaemon:
         while True:
             target = self.check_hold()
             if target:
-                self.switch_to_gamemode(target)
-                logging.info("combo triggered (%s); exiting", target)
-                return
+                ok = self.switch_to_gamemode(target)
+                if ok:
+                    logging.info("combo triggered (%s); exiting", target)
+                    return
+                logging.error("switch failed for %s — keep listening (see ~/.cache/8bitdo-gamemode-last.log)", target)
+                self.state = ComboState()
+                time.sleep(1.0)
+                continue
 
             fds: Dict[int, OpenDevice] = {d.fd: d for d in self.devices}
             rlist = list(fds.keys())
@@ -482,9 +530,17 @@ class HotkeyDaemon:
                         self.apply_event(dev.bindings, ev_type, code, value)
                         target = self.check_hold()
                         if target:
-                            self.switch_to_gamemode(target)
-                            logging.info("combo triggered (%s); exiting", target)
-                            return
+                            ok = self.switch_to_gamemode(target)
+                            if ok:
+                                logging.info("combo triggered (%s); exiting", target)
+                                return
+                            logging.error(
+                                "switch failed for %s — keep listening (see ~/.cache/8bitdo-gamemode-last.log)",
+                                target,
+                            )
+                            self.state = ComboState()
+                            time.sleep(1.0)
+                            break
 
 
 PERM_HINT = (
