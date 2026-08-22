@@ -1,5 +1,5 @@
 #!/bin/bash
-# Всё в одном: sleep, wake, re-enum, Guide+LT+RT, (на 44 — InputPlumber + steamosctl).
+# Всё в одном: sleep, wake, re-enum, Start+Select+LB+RB→Game Mode, (на 44 — InputPlumber + steamosctl).
 # Работает на Bazzite 43 и 44 (deck/HTPC).
 #
 #   sudo ./scripts/install-all.sh
@@ -171,7 +171,7 @@ echo "  2. Smoke-test:"
 echo "     - wake: sleep → Home / снять с дока (клава/мышь НЕ будят)"
 echo "     - sleep/док: Big Picture sleep → док"
 echo "     - D-Input: B+Home → гиро/L4 в Steam без Restart"
-echo "     - Guide+LT+RT в Desktop → Game Mode"
+echo "     - Start+Select+LB+RB в Desktop → Game Mode"
 echo ""
 echo "Диагностика:"
 echo "  sudo 8bitdo-wakeup-check.sh"

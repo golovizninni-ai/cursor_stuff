@@ -4,7 +4,7 @@
 
 ## Установка всего сразу (Bazzite 43 и 44)
 
-Один скрипт ставит: sleep/док, wake только геймпад, D-Input re-enum, hidraw, Guide+LT+RT, и на 44 — InputPlumber ignore + steamosctl wrapper.
+Один скрипт ставит: sleep/док, wake только геймпад, D-Input re-enum, hidraw, Start+Select+LB+RB → Game Mode, и на 44 — InputPlumber ignore + steamosctl wrapper.
 
 ```bash
 cd 8bitdo-ultimate2-steam
@@ -16,7 +16,7 @@ sudo ./scripts/install-all.sh
 
 Опции: `--dry-run`, `--no-44`, `--force-44`. Детект: `./scripts/8bitdo-detect-bazzite.sh`
 
-После reboot smoke-test: wake, sleep/док, D-Input (B+Home), Guide+LT+RT в Desktop.
+После reboot smoke-test: wake, sleep/док, D-Input (B+Home), **Start+Select+LB+RB** в Desktop.
 
 ---
 
@@ -498,7 +498,9 @@ sudo udevadm trigger
 
 **Задача:** после cold boot в Desktop Mode включить геймпад с дивана и перейти в Game Mode **без клавиатуры/мыши**.
 
-**Комбо:** **Guide (Home) + LT + RT** — одновременно, ~0.4 с.
+**Комбо:** **Start (+) + Select (−) + LB + RB** — одновременно, ~0.4 с.
+
+Guide/Home **не** используем: Steam часто перехватывает. Триггеры тоже не используем (аналог, разный маппинг X/D-Input).
 
 Работает в **XInput** (`310b`) и **D-Input** (`6012`). Слушает evdev через blocking `select()` — **~0% CPU** в простое. После успешного перехода служба **завершается** и не поднимается до следующего входа в Plasma.
 
@@ -536,8 +538,8 @@ cd 8bitdo-ultimate2-steam
 ### Проверка
 
 ```bash
-# найденные event-узлы и маппинг кнопок
 ~/.local/bin/8bitdo-gamemode-hotkey.py --list-devices
+~/.local/bin/8bitdo-gamemode-hotkey.py --monitor   # какие кнопки реально приходят
 
 # статус и логи
 systemctl --user status 8bitdo-gamemode-hotkey.service
@@ -548,7 +550,7 @@ journalctl --user -u 8bitdo-gamemode-hotkey.service -f
 
 ### Конфиг
 
-`~/.config/8bitdo/gamemode.conf` — порог курков, `hold_ms`, путь к `return-to-gamemode`.
+`~/.config/8bitdo/gamemode.conf` — `hold_ms`, путь к switch-команде.
 
 **Файлы:** `scripts/8bitdo-gamemode-hotkey.py`, `systemd/8bitdo-gamemode-hotkey.service`, `config/8bitdo-gamemode.conf`, `udev/74-8bitdo-evdev.rules`, `scripts/install-gamemode-hotkey-udev.sh`, `scripts/8bitdo-gamemode-check-perms.sh`
 

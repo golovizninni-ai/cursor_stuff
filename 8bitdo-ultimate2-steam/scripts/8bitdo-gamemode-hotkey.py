@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-# 8BitDo Ultimate 2: Guide + LT + RT -> Game Mode (Desktop only).
+# 8BitDo Ultimate 2: Start + Select + LB + RB -> Game Mode (Desktop only).
 # Blocking evdev read via select(); exits after successful switch.
+# Note: Guide (BTN_MODE) often eaten by Steam — do not use in combo.
 from __future__ import annotations
 
 import argparse
@@ -26,16 +27,14 @@ def shutil_which(cmd: str) -> Optional[str]:
 
 EV_KEY = 0x01
 EV_ABS = 0x03
+EV_SYN = 0x00
 
-BTN_MODE = 0x0107
-BTN_START = 0x007B
-BTN_TL2 = 0x0108
-BTN_TR2 = 0x0109
-
-ABS_Z = 0x02
-ABS_RZ = 0x03
-ABS_BRAKE = 0x05
-ABS_GAS = 0x09
+# linux/input-event-codes.h (gamepad)
+BTN_TL = 0x136      # LB
+BTN_TR = 0x137      # RB
+BTN_SELECT = 0x13A  # − / Back / Select
+BTN_START = 0x13B   # + / Start
+BTN_MODE = 0x13C    # Guide/Home (not used — Steam often grabs)
 
 EVENT_SIZE = 24
 EVENT_FORMAT = "llHHi"
@@ -49,11 +48,11 @@ DEFAULT_CONFIG_PATHS = (
     Path("/etc/8bitdo-gamemode.conf"),
 )
 
-GUIDE_CODES = (BTN_MODE, BTN_START)
-LT_KEY_CODES = (BTN_TL2,)
-RT_KEY_CODES = (BTN_TR2,)
-LT_ABS_CODES = (ABS_Z, ABS_BRAKE)
-RT_ABS_CODES = (ABS_RZ, ABS_GAS)
+# Combo: + (Start) + − (Select) + LB + RB
+START_CODES = (BTN_START,)
+SELECT_CODES = (BTN_SELECT,)
+LB_CODES = (BTN_TL,)
+RB_CODES = (BTN_TR,)
 
 IOC_READ = 2
 
@@ -72,7 +71,6 @@ def eviocgbit(ev: int, size: int) -> int:
 def load_config() -> dict:
     cfg = configparser.ConfigParser()
     defaults = {
-        "trigger_threshold": "128",
         "hold_ms": "400",
         "switch_command": "/usr/local/bin/8bitdo-switch-gamemode",
         "fallback_command": "/usr/bin/return-to-gamemode",
@@ -83,7 +81,6 @@ def load_config() -> dict:
             break
     section = cfg["hotkey"] if cfg.has_section("hotkey") else {}
     return {
-        "trigger_threshold": int(section.get("trigger_threshold", defaults["trigger_threshold"])),
         "hold_ms": int(section.get("hold_ms", defaults["hold_ms"])),
         "switch_command": section.get("switch_command", defaults["switch_command"]),
         "fallback_command": section.get("fallback_command", defaults["fallback_command"]),
@@ -167,30 +164,29 @@ def has_code(fd: int, ev_type: int, code: int) -> bool:
 
 @dataclass
 class Bindings:
-    guide_codes: Set[int] = field(default_factory=set)
-    lt_keys: Set[int] = field(default_factory=set)
-    rt_keys: Set[int] = field(default_factory=set)
-    lt_axes: Set[int] = field(default_factory=set)
-    rt_axes: Set[int] = field(default_factory=set)
+    start_codes: Set[int] = field(default_factory=set)
+    select_codes: Set[int] = field(default_factory=set)
+    lb_codes: Set[int] = field(default_factory=set)
+    rb_codes: Set[int] = field(default_factory=set)
+
+    def has_any(self) -> bool:
+        return bool(self.start_codes or self.select_codes or self.lb_codes or self.rb_codes)
 
 
 def detect_bindings(fd: int) -> Bindings:
     b = Bindings()
-    for code in GUIDE_CODES:
+    for code in START_CODES:
         if has_code(fd, EV_KEY, code):
-            b.guide_codes.add(code)
-    for code in LT_KEY_CODES:
+            b.start_codes.add(code)
+    for code in SELECT_CODES:
         if has_code(fd, EV_KEY, code):
-            b.lt_keys.add(code)
-    for code in RT_KEY_CODES:
+            b.select_codes.add(code)
+    for code in LB_CODES:
         if has_code(fd, EV_KEY, code):
-            b.rt_keys.add(code)
-    for code in LT_ABS_CODES:
-        if has_code(fd, EV_ABS, code):
-            b.lt_axes.add(code)
-    for code in RT_ABS_CODES:
-        if has_code(fd, EV_ABS, code):
-            b.rt_axes.add(code)
+            b.lb_codes.add(code)
+    for code in RB_CODES:
+        if has_code(fd, EV_KEY, code):
+            b.rb_codes.add(code)
     return b
 
 
@@ -220,12 +216,20 @@ def open_devices(nodes: Iterable[Path]) -> List[OpenDevice]:
             logging.warning("cannot query %s: %s", path, exc)
             os.close(fd)
             continue
-        if not bindings.guide_codes and not bindings.lt_keys and not bindings.lt_axes:
-            logging.debug("skip %s (%s): no relevant controls", path, name)
+        if not bindings.has_any():
+            logging.debug("skip %s (%s): no Start/Select/LB/RB", path, name)
             os.close(fd)
             continue
         opened.append(OpenDevice(path=path, fd=fd, name=name, bindings=bindings))
-        logging.info("watching %s (%s)", path, name)
+        logging.info(
+            "watching %s (%s) start=%s select=%s lb=%s rb=%s",
+            path,
+            name,
+            sorted(bindings.start_codes),
+            sorted(bindings.select_codes),
+            sorted(bindings.lb_codes),
+            sorted(bindings.rb_codes),
+        )
     return opened
 
 
@@ -245,22 +249,28 @@ def setup_inotify() -> int:
 
 @dataclass
 class ComboState:
-    guide: bool = False
-    lt: bool = False
-    rt: bool = False
+    start: bool = False
+    select: bool = False
+    lb: bool = False
+    rb: bool = False
     hold_start: Optional[float] = None
 
     def all_pressed(self) -> bool:
-        return self.guide and self.lt and self.rt
+        return self.start and self.select and self.lb and self.rb
 
     def reset_hold(self) -> None:
         self.hold_start = None
+
+    def summary(self) -> str:
+        return (
+            f"start={int(self.start)} select={int(self.select)} "
+            f"lb={int(self.lb)} rb={int(self.rb)}"
+        )
 
 
 class HotkeyDaemon:
     def __init__(self, config: dict) -> None:
         self.config = config
-        self.threshold = config["trigger_threshold"]
         self.hold_ms = config["hold_ms"]
         self.devices: List[OpenDevice] = []
         self.inotify_fd: Optional[int] = None
@@ -289,23 +299,29 @@ class HotkeyDaemon:
         self.state = ComboState()
 
     def apply_event(self, bindings: Bindings, ev_type: int, code: int, value: int) -> None:
-        if ev_type == EV_KEY:
-            if code in bindings.guide_codes:
-                self.state.guide = value != 0
-            elif code in bindings.lt_keys:
-                self.state.lt = value != 0
-            elif code in bindings.rt_keys:
-                self.state.rt = value != 0
-        elif ev_type == EV_ABS:
-            pressed = value >= self.threshold
-            if code in bindings.lt_axes:
-                self.state.lt = pressed
-            elif code in bindings.rt_axes:
-                self.state.rt = pressed
+        if ev_type != EV_KEY:
+            return
+        changed = False
+        if code in bindings.start_codes:
+            self.state.start = value != 0
+            changed = True
+        elif code in bindings.select_codes:
+            self.state.select = value != 0
+            changed = True
+        elif code in bindings.lb_codes:
+            self.state.lb = value != 0
+            changed = True
+        elif code in bindings.rb_codes:
+            self.state.rb = value != 0
+            changed = True
+        if not changed:
+            return
 
+        logging.debug("combo state: %s", self.state.summary())
         if self.state.all_pressed():
             if self.state.hold_start is None:
                 self.state.hold_start = time.monotonic()
+                logging.info("combo armed (%s) — hold %dms", self.state.summary(), self.hold_ms)
         else:
             self.state.reset_hold()
 
@@ -457,14 +473,16 @@ def describe_devices() -> int:
         try:
             name = device_name(fd)
             bindings = detect_bindings(fd)
+            has_mode = has_code(fd, EV_KEY, BTN_MODE)
         finally:
             os.close(fd)
         print(f"  name: {name}")
-        print(f"  guide: {sorted(bindings.guide_codes) or 'none'}")
-        print(f"  lt keys: {sorted(bindings.lt_keys) or 'none'}")
-        print(f"  rt keys: {sorted(bindings.rt_keys) or 'none'}")
-        print(f"  lt axes: {sorted(bindings.lt_axes) or 'none'}")
-        print(f"  rt axes: {sorted(bindings.rt_axes) or 'none'}")
+        print(f"  Start (+):  {sorted(bindings.start_codes) or 'MISSING'}")
+        print(f"  Select (−): {sorted(bindings.select_codes) or 'MISSING'}")
+        print(f"  LB:         {sorted(bindings.lb_codes) or 'MISSING'}")
+        print(f"  RB:         {sorted(bindings.rb_codes) or 'MISSING'}")
+        print(f"  Guide (unused): {'yes' if has_mode else 'no'} code={BTN_MODE}")
+        print("  Combo: Start + Select + LB + RB (~0.4s)")
     if denied:
         print("")
         print(PERM_HINT)
@@ -472,9 +490,64 @@ def describe_devices() -> int:
     return 0
 
 
+BTN_NAMES = {
+    BTN_TL: "LB",
+    BTN_TR: "RB",
+    BTN_SELECT: "Select(-)",
+    BTN_START: "Start(+)",
+    BTN_MODE: "Guide",
+}
+
+
+def monitor_devices() -> int:
+    """Print EV_KEY for debugging mapping (Ctrl+C to stop)."""
+    nodes = get_event_nodes()
+    if not nodes:
+        print("No devices. Turn on controller.")
+        return 1
+    fds: Dict[int, Path] = {}
+    for path in nodes:
+        try:
+            fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK)
+        except OSError as exc:
+            print(f"open {path}: {exc}")
+            continue
+        fds[fd] = path
+        print(f"listening {path}")
+    if not fds:
+        return 1
+    print("Press Start / Select / LB / RB (and Guide to compare). Ctrl+C to exit.")
+    try:
+        while True:
+            readable, _, _ = select.select(list(fds.keys()), [], [], 1.0)
+            for fd in readable:
+                try:
+                    data = os.read(fd, EVENT_SIZE * 32)
+                except BlockingIOError:
+                    continue
+                except OSError:
+                    continue
+                for offset in range(0, len(data), EVENT_SIZE):
+                    chunk = data[offset : offset + EVENT_SIZE]
+                    if len(chunk) < EVENT_SIZE:
+                        break
+                    _s, _u, ev_type, code, value = struct.unpack(EVENT_FORMAT, chunk)
+                    if ev_type != EV_KEY:
+                        continue
+                    label = BTN_NAMES.get(code, f"code={code}")
+                    print(f"{fds[fd].name}: {label} value={value}")
+    except KeyboardInterrupt:
+        print("")
+    finally:
+        for fd in fds:
+            os.close(fd)
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="8BitDo Ultimate 2 -> Game Mode hotkey")
     parser.add_argument("--list-devices", action="store_true", help="show detected evdev nodes")
+    parser.add_argument("--monitor", action="store_true", help="print button presses (debug)")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
 
@@ -485,6 +558,8 @@ def main() -> int:
 
     if args.list_devices:
         return describe_devices()
+    if args.monitor:
+        return monitor_devices()
 
     if subprocess.run(["pgrep", "-x", "gamescope"], capture_output=True).returncode == 0:
         logging.info("gamescope active; nothing to do")

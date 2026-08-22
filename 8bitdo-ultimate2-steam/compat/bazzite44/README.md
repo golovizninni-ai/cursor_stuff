@@ -6,7 +6,7 @@ Bazzite **Deck 44** — крупная замена стека: **SteamOS-Manage
 
 | Компонент | Риск на 44 | Почему | Действие |
 |-----------|------------|--------|----------|
-| **Guide+LT+RT → Game Mode** | Средний | `return-to-gamemode` → `steamosctl`; fallback `steamos-session-select` без args ещё ок, но лучше явный `steamosctl` | Ставить wrapper из этой папки |
+| **Start+Select+LB+RB → Game Mode** | Средний | `return-to-gamemode` → `steamosctl`; лучше явный `steamosctl` | Ставить wrapper из этой папки |
 | **Hotkey / Steam Input / D-Input** | **Высокий** | **InputPlumber** дублирует 8BitDo (второй «Steam Deck Controller»), может ломать маппинг и чтение evdev | **Ignore YAML** для `2dc8:6012` и `2dc8:310b` |
 | Sleep / dock hooks | Низкий | `ExecStartPre`/`ExecStopPost` на suspend без изменений | Как на 43 |
 | USB wake-only | Низкий | `power/wakeup` тот же; ядро 7.2 — проверить после обновления | `8bitdo-wakeup-check.sh` |
