@@ -20,6 +20,33 @@ sudo ./scripts/install-all.sh
 
 ---
 
+## HDR выбелен / «радуга» при входе в Game Mode
+
+Частый quirk Steam/gamescope (в доках Bazzite — [Rainbow Display](https://docs.bazzite.gg/Handheld_and_HTPC_edition/quirks/)): после Desktop → Game Mode картинка на ТВ/мониторе **выцветшая / выбеленная**. QAM → HDR off → on возвращает нормальный HDR. На ТВ при HDR off картинка может быть сверхконтрастной; на мониторе SDR обычно выглядит нормально.
+
+### Что сделать вручную (главный фикс)
+
+1. Game Mode → **Settings → System → Enable developer mode**
+2. **Developer → Force Composite** — включить
+3. Если снова выбелило: боковое меню (QAM) → **Display → HDR** выкл → вкл
+
+### Авто-nudge (опционально)
+
+После старта gamescope скрипт выставляет те же X11-атомы, что Steam (`GAMESCOPE_COMPOSITE_FORCE`, toggle `GAMESCOPE_DISPLAY_HDR_ENABLED`):
+
+```bash
+cd 8bitdo-ultimate2-steam
+./scripts/install-hdr-workaround.sh
+# перезайдите в Game Mode
+# лог: ~/.cache/8bitdo-hdr-nudge.log
+```
+
+Конфиг: `~/.config/environment.d/20-8bitdo-hdr.conf` (`HDR_NUDGE=0` — выключить). Снятие: `./scripts/uninstall-hdr-workaround.sh`.
+
+В `install-all.sh` **не** входит — это отдельно от геймпада.
+
+---
+
 ## Пробуждение ПК геймпадом на Bazzite (кратко)
 
 Из коробки Bazzite/Linux **не** будит 8BitDo по 2.4 ГГц донгл: у донгла нет remote-wakeup как у клавиатуры. **Bluetooth** кнопкой геймпада ПК тоже обычно **не** будит — рабочий путь: **донгл в USB**, wake по USB-событию на шине (вкл/выкл геймпада, смена PID `6013` ↔ `6012`/`310b`).
@@ -592,7 +619,8 @@ journalctl --user -u 8bitdo-gamemode-hotkey.service -f
 │   └── scripts/
 ├── config/
 │   ├── 8bitdo-sleep.conf
-│   └── 8bitdo-gamemode.conf
+│   ├── 8bitdo-gamemode.conf
+│   └── gamescope-session-hdr-nudge.sh
 ├── systemd/
 │   ├── 8bitdo-suspend.conf
 │   ├── 8bitdo-wakeup-only-dongle.service
@@ -604,6 +632,9 @@ journalctl --user -u 8bitdo-gamemode-hotkey.service -f
 │   ├── 8bitdo-gamemode-hotkey.py
 │   ├── install-gamemode-hotkey.sh
 │   ├── uninstall-gamemode-hotkey.sh
+│   ├── 8bitdo-hdr-nudge.sh
+│   ├── install-hdr-workaround.sh
+│   ├── uninstall-hdr-workaround.sh
 │   ├── 8bitdo-reenum.sh
 │   ├── install-reenum.sh
 │   ├── uninstall-reenum.sh
@@ -633,3 +664,5 @@ journalctl --user -u 8bitdo-gamemode-hotkey.service -f
 - [Gist: Ultimate 2 on Linux](https://gist.github.com/barraIhsan/783a82bcf32bed896c85d27dbb8018a5)
 - [8bitdo-sleep-fix](https://github.com/jasonewall/8bitdo-sleep-fix) — unbind + wait idle (у нас wait без unbind)
 - [wake-on-2.4g](https://github.com/Redemp/wake-on-2.4g) — waitdock / idle PID
+- [Bazzite quirks — Rainbow Display](https://docs.bazzite.gg/Handheld_and_HTPC_edition/quirks/) — HDR toggle / Force Composite
+- [bazzite#2091](https://github.com/ublue-os/bazzite/issues/2091) — washed HDR Desktop ↔ Game Mode

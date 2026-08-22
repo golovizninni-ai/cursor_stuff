@@ -49,12 +49,17 @@ if [[ -n "$REAL_USER" && -n "$USER_HOME" ]]; then
     env HOME="$USER_HOME" XDG_RUNTIME_DIR="$RUNTIME_DIR" \
     DBUS_SESSION_BUS_ADDRESS="unix:path=${RUNTIME_DIR}/bus" \
     bash "$ROOT/scripts/uninstall-gamemode-hotkey.sh" || true
+  echo "=== uninstall HDR nudge (если ставили) ==="
+  sudo -u "$REAL_USER" -H \
+    env HOME="$USER_HOME" XDG_RUNTIME_DIR="$RUNTIME_DIR" \
+    bash "$ROOT/scripts/uninstall-hdr-workaround.sh" || true
 else
   echo "WARN: не удалось снять user-службу (нет SUDO_USER). Снимите вручную:"
   echo "  ./scripts/uninstall-gamemode-hotkey.sh"
+  echo "  ./scripts/uninstall-hdr-workaround.sh"
 fi
 
-rm -f /usr/local/bin/8bitdo-switch-gamemode
+rm -f /usr/local/bin/8bitdo-switch-gamemode /usr/local/bin/8bitdo-hdr-nudge.sh
 
 systemctl daemon-reload || true
 
