@@ -2,6 +2,24 @@
 
 Решения для работы **8BitDo Ultimate 2 Wireless** (2.4 ГГц донгл) в режиме **D-Input** со Steam Input: гироскоп, L4/R4, PL/PR без ручного Restart Steam.
 
+## Установка всего сразу (Bazzite 43 и 44)
+
+Один скрипт ставит: sleep/док, wake только геймпад, D-Input re-enum, hidraw, Guide+LT+RT, и на 44 — InputPlumber ignore + steamosctl wrapper.
+
+```bash
+cd 8bitdo-ultimate2-steam
+sudo ./scripts/install-all.sh
+# reboot
+```
+
+Снятие: `sudo ./scripts/uninstall-all.sh`
+
+Опции: `--dry-run`, `--no-44`, `--force-44`. Детект: `./scripts/8bitdo-detect-bazzite.sh`
+
+После reboot smoke-test: wake, sleep/док, D-Input (B+Home), Guide+LT+RT в Desktop.
+
+---
+
 ## Пробуждение ПК геймпадом на Bazzite (кратко)
 
 Из коробки Bazzite/Linux **не** будит 8BitDo по 2.4 ГГц донгл: у донгла нет remote-wakeup как у клавиатуры. **Bluetooth** кнопкой геймпада ПК тоже обычно **не** будит — рабочий путь: **донгл в USB**, wake по USB-событию на шине (вкл/выкл геймпада, смена PID `6013` ↔ `6012`/`310b`).
@@ -538,26 +556,10 @@ journalctl --user -u 8bitdo-gamemode-hotkey.service -f
 
 ## Bazzite 44 (Deck / HTPC)
 
-На **Deck 44** новый стек: SteamOS-Manager + **InputPlumber**. Что важно для наших скриптов:
+На **Deck 44** новый стек: SteamOS-Manager + **InputPlumber**.  
+`install-all.sh` сам ставит слой `compat/bazzite44`, если видит fedora 44 / `steamosctl` / InputPlumber.
 
-| Скрипт | На 44 |
-|--------|--------|
-| Sleep / wake / re-enum | Обычно **без изменений** |
-| Guide+LT+RT | Нужен **`steamosctl`**; лучше wrapper |
-| Steam / D-Input / hotkey evdev | **InputPlumber** может **дублировать** 8BitDo → нужен ignore |
-
-```bash
-# проверить образ
-./scripts/8bitdo-detect-bazzite.sh
-
-# после обновления на 44:
-sudo ./compat/bazzite44/scripts/install-bazzite44.sh
-# reboot рекомендуется
-```
-
-Подробности: [compat/bazzite44/README.md](compat/bazzite44/README.md)
-
-Перед апдейтом: `sudo ostree admin pin 0`
+Подробности: [compat/bazzite44/README.md](compat/bazzite44/README.md). Перед апдейтом: `sudo ostree admin pin 0`.
 
 ---
 
@@ -576,6 +578,11 @@ sudo ./compat/bazzite44/scripts/install-bazzite44.sh
 ```
 8bitdo-ultimate2-steam/
 ├── README.md
+├── compat/bazzite44/          # слой для Deck 44 (InputPlumber + steamosctl)
+│   ├── README.md
+│   ├── config/
+│   ├── inputplumber/
+│   └── scripts/
 ├── config/
 │   ├── 8bitdo-sleep.conf
 │   └── 8bitdo-gamemode.conf
@@ -584,6 +591,9 @@ sudo ./compat/bazzite44/scripts/install-bazzite44.sh
 │   ├── 8bitdo-wakeup-only-dongle.service
 │   └── 8bitdo-gamemode-hotkey.service
 ├── scripts/
+│   ├── install-all.sh              # всё в одном (43+44)
+│   ├── uninstall-all.sh
+│   ├── 8bitdo-detect-bazzite.sh
 │   ├── 8bitdo-gamemode-hotkey.py
 │   ├── install-gamemode-hotkey.sh
 │   ├── uninstall-gamemode-hotkey.sh
@@ -602,7 +612,8 @@ sudo ./compat/bazzite44/scripts/install-bazzite44.sh
     ├── 10-wakeup-usb-hubs.rules
     ├── 71-8bitdo-u2w.rules
     ├── 73-8bitdo-reenum.rules
-    └── 74-8bitdo-evdev.rules
+    ├── 74-8bitdo-evdev.rules
+    └── 75-8bitdo-wakeup-only.rules
 ```
 
 ---
