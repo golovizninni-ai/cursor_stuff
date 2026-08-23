@@ -51,13 +51,15 @@ systemctl --user restart 8bitdo-gamemode-hotkey.service
 ### Геймпад «сам заработал»
 На 44 часто wake / D-Input / хоткеи уже ок **без** нашего installer (ядро 7.2 + новый стек). Слой `compat/bazzite44` всё равно полезен, если появятся **дубли** от InputPlumber.
 
-### Автовход в Plasma вместо Game Mode
+### Автовход: Desktop (Plasma) сначала, Game Mode по ярлыку/хоткею
+Для HTPC обычно нужен **desktop**, не game:
 ```bash
-steamosctl set-default-login-mode game
+steamosctl set-default-login-mode desktop
 # проверка:
-steamosctl get-default-login-mode
+steamosctl get-default-login-mode   # → desktop
 ```
-Ребут. Если снова сбросится — обнови образ (фикс persist login mode в steamosctl).
+Ребут. Game Mode — только ярлыки / Start+Select+… / `steamosctl switch-to-game-mode`.  
+Если снова сбросится на game — обнови образ (persist login mode в steamosctl).
 
 ### Ярлыки на рабочем столе просят sudo и ничего не делают
 Старые `.desktop` с `pkexec` / `systemctl start return-to-gamemode` на 44 часто мёртвые. Нужен **`steamosctl` без sudo**:
