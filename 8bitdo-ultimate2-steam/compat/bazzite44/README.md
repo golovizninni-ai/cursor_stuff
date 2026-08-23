@@ -52,14 +52,17 @@ systemctl --user restart 8bitdo-gamemode-hotkey.service
 На 44 часто wake / D-Input / хоткеи уже ок **без** нашего installer (ядро 7.2 + новый стек). Слой `compat/bazzite44` всё равно полезен, если появятся **дубли** от InputPlumber.
 
 ### Автовход: Desktop (Plasma) сначала, Game Mode по ярлыку/хоткею
-Для HTPC обычно нужен **desktop**, не game:
 ```bash
+# мягко:
 steamosctl set-default-login-mode desktop
-# проверка:
-steamosctl get-default-login-mode   # → desktop
+steamosctl set-default-desktop-session plasma.desktop
+
+# если после reboot всё равно Game Mode — жёстко (SDDM):
+sudo ./scripts/fix-desktop-autologin.sh
+sudo systemctl reboot
 ```
-Ребут. Game Mode — только ярлыки / Start+Select+… / `steamosctl switch-to-game-mode`.  
-Если снова сбросится на game — обнови образ (persist login mode в steamosctl).
+Скрипт пишет `Session=plasma.desktop` в `/etc/sddm.conf.d/zz-holo-autologin.conf` и создаёт `/etc/bazzite/desktop_autologin`.  
+Проверка после reboot: не должно быть `Session=gamescope` в `grep -r Session /etc/sddm.conf.d/`.
 
 ### Ярлыки на рабочем столе просят sudo и ничего не делают
 Старые `.desktop` с `pkexec` / `systemctl start return-to-gamemode` на 44 часто мёртвые. Нужен **`steamosctl` без sudo**:
