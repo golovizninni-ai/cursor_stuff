@@ -46,6 +46,37 @@ systemctl --user restart 8bitdo-gamemode-hotkey.service
 
 Снятие: `sudo ./compat/bazzite44/scripts/uninstall-bazzite44.sh`
 
+## После апдейта на 44 (типичные симптомы)
+
+### Геймпад «сам заработал»
+На 44 часто wake / D-Input / хоткеи уже ок **без** нашего installer (ядро 7.2 + новый стек). Слой `compat/bazzite44` всё равно полезен, если появятся **дубли** от InputPlumber.
+
+### Автовход в Plasma вместо Game Mode
+```bash
+steamosctl set-default-login-mode game
+# проверка:
+steamosctl get-default-login-mode
+```
+Ребут. Если снова сбросится — обнови образ (фикс persist login mode в steamosctl).
+
+### Ярлыки на рабочем столе просят sudo и ничего не делают
+Старые `.desktop` с `pkexec` / `systemctl start return-to-gamemode` на 44 часто мёртвые. Нужен **`steamosctl` без sudo**:
+
+```bash
+./scripts/install-gamemode-desktop-shortcuts.sh
+```
+
+Или вручную: записать `OUTPUT_CONNECTOR=DP-1` (или `DP-3`) в `~/.config/environment.d/10-gamescope-session.conf` и `steamosctl switch-to-game-mode`.
+
+### Game Mode на TV/мониторе идеален, Desktop OLED выбелен (SDR и HDR)
+Известный глюк Steam/KWin: после Game Mode с HDR Desktop «серый», тумблер HDR в KDE не лечит. Обходы:
+
+1. В Game Mode выключить HDR → перейти на Desktop (часто сразу норма).
+2. Game Mode → Developer → **Принудительная компоновка** (Force Composite) — у части людей чинит Desktop (может снова ломать Game Mode до toggle HDR).
+3. В KDE: Система → Дисплей → HDR / цветовой профиль на OLED — сброс профиля / «как у устройства».
+
+Это не баг 8BitDo.
+
 ## Если дубли вводов всё равно есть
 
 ```bash

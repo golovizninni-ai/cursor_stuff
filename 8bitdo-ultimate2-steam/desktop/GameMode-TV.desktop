@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=GameMode (TV)
+Name[ru]=Game Mode (ТВ)
+Comment=OUTPUT_CONNECTOR=DP-3 → steamosctl switch-to-game-mode
+Comment[ru]=Переход в Game Mode на ТВ (DP-3). Без sudo.
+Icon=steamdeck-gaming-return
+Terminal=false
+Categories=Game;
+Exec=bash -c 'mkdir -p "$HOME/.config/environment.d" && printf "OUTPUT_CONNECTOR=DP-3\n" > "$HOME/.config/environment.d/10-gamescope-session.conf" && (command -v steamosctl >/dev/null && steamosctl switch-to-game-mode || systemctl start --user return-to-gamemode.service 2>/dev/null || /usr/bin/return-to-gamemode)'
+StartupNotify=false
