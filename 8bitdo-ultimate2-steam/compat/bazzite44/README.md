@@ -74,11 +74,11 @@ sudo systemctl reboot
 Или вручную: записать `OUTPUT_CONNECTOR=DP-1` (или `DP-3`) в `~/.config/environment.d/10-gamescope-session.conf` и `steamosctl switch-to-game-mode`.
 
 ### Game Mode на TV/мониторе идеален, Desktop OLED выбелен (SDR и HDR)
-Известный глюк Steam/KWin: после Game Mode с HDR Desktop «серый», тумблер HDR в KDE не лечит. Обходы:
+Известный глюк Steam/KWin после Game Mode с HDR. На HTPC после 44 сработало:
 
-1. В Game Mode выключить HDR → перейти на Desktop (часто сразу норма).
-2. Game Mode → Developer → **Принудительная компоновка** (Force Composite) — у части людей чинит Desktop (может снова ломать Game Mode до toggle HDR).
-3. В KDE: Система → Дисплей → HDR / цветовой профиль на OLED — сброс профиля / «как у устройства».
+1. **Game Mode → Developer → Принудительная компоновка (Force Composite)** — чинит выбеливание Desktop; при переключениях Monitor/TV Game Mode тоже остаётся нормальным (у части людей).
+2. Запасной вариант: в Game Mode выключить HDR → выйти на Desktop.
+3. KDE → Дисплей → сброс HDR/профиля на OLED.
 
 Это не баг 8BitDo.
 
