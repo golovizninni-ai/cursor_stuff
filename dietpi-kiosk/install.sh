@@ -21,10 +21,10 @@ CRON_LINE='0 0 * * * /usr/local/sbin/refresh-dashboards.sh >>/var/log/refresh-da
 ) | crontab -
 touch /var/log/refresh-dashboards.log
 
-# Prefer 1080p for weak NUC GPU
+# 4K (kiosk-session.sh also sets xrandr HDMI-1 3840x2160@30)
 if [ -f /boot/dietpi.txt ]; then
-  sed -i 's/^SOFTWARE_CHROMIUM_RES_X=.*/SOFTWARE_CHROMIUM_RES_X=1920/' /boot/dietpi.txt
-  sed -i 's/^SOFTWARE_CHROMIUM_RES_Y=.*/SOFTWARE_CHROMIUM_RES_Y=1080/' /boot/dietpi.txt
+  sed -i 's/^SOFTWARE_CHROMIUM_RES_X=.*/SOFTWARE_CHROMIUM_RES_X=3840/' /boot/dietpi.txt
+  sed -i 's/^SOFTWARE_CHROMIUM_RES_Y=.*/SOFTWARE_CHROMIUM_RES_Y=2160/' /boot/dietpi.txt
 fi
 
 # Ensure Chromium kiosk autostart (index 11)

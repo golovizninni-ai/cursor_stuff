@@ -1,14 +1,16 @@
 # DietPi SOC dashboard kiosk
 
-Кастомизации для слабенького Intel NUC у ТВ: один Chromium с тремя дашбордами, авторотация вкладок, VNC на тот же экран (`:0`), без курсора.
+Кастомизации Intel NUC у ТВ: Chromium в **4K (3840×2160@30)**, три дашборда Grafana/Zabbix, авторотация вкладок, ночной F5-refresh, без курсора.
+
+Перед стартом вызывается **`/root/tv_on.sh`** (пробуждение ТВ — CEC или свой скрипт, должен быть на NUC).
 
 ## Дашборды
 
-1. `https://alfa-soc.vls.lan/`
-2. `https://alfa-siem-pt.vls.lan/#/dashboards/dashboard?dashboardId=74`
-3. `https://zabbix-ib.vls.lan/`
+1. Grafana SOC (kiosk): `https://alfa-soc.vls.lan/?orgId=1&...&kiosk/`
+2. Grafana MaxPatrol обзор (kiosk): `https://alfa-soc.vls.lan/d/mp-overview/maxpatrol-e28094-obzor?...&kiosk`
+3. Zabbix: `https://zabbix-ib.vls.lan/`
 
-Интервал ротации: **45 секунд**.
+Интервал ротации: **45 секунд**. Вывод: **HDMI-1, 3840×2160@30** через `xrandr`.
 
 ## Файлы
 
@@ -44,14 +46,18 @@ dietpi-autostart                # выбрать 11 : Chromium
 reboot
 ```
 
-## VNC (экран ТВ)
+## VNC (опционально)
 
-- Хост: IP NUC
-- Порт: **5900** (в MobaXterm — отдельное поле порта, не `IP:5900` в строке хоста)
-- Пользователь сессии: `dietpi`
-- Пароль: заданный через `tigervncpasswd`
+В текущем `kiosk-session.sh` VNC **закомментирован**. Чтобы включить, раскомментируйте блок `x0vncserver` в скрипте.
 
-VNC и ротация стартуют из той же X-сессии, что и Chromium (не отдельными systemd-юнитами), чтобы не гоняться с автологином DietPi после reboot.
+Альтернатива с паролем (как раньше):
+
+```bash
+x0vncserver -display :0 -localhost no -rfbport 5900 \
+  -PasswordFile /home/dietpi/.config/tigervnc/passwd &
+```
+
+Подключение: IP NUC, порт **5900** (в MobaXterm — отдельное поле порта).
 
 ## Ночной refresh дашбордов
 
@@ -74,7 +80,8 @@ VNC и ротация стартуют из той же X-сессии, что �
 
 ## Полезные правки
 
-- Разрешение: `SOFTWARE_CHROMIUM_RES_X/Y` в `/boot/dietpi.txt` → `1920` / `1080`
+- Разрешение: `SOFTWARE_CHROMIUM_RES_X/Y` в `/boot/dietpi.txt` → `3840` / `2160`; выход HDMI: `xrandr --output HDMI-1 ...`
+- Имя выхода HDMI (`HDMI-1`) проверьте: `xrandr | grep connected`
 - Смена интервала вкладок: `sleep 45` в `kiosk-session.sh`
 - Самоподписанные сертификаты `.vls.lan`: флаги `--ignore-certificate-errors --allow-insecure-localhost`
 - Плашка «Restore pages?»: сброс `Preferences` + `--hide-crash-restore-bubble`
