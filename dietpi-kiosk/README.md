@@ -16,6 +16,7 @@
 |---|---|
 | `chromium-autostart.sh` | `/var/lib/dietpi/dietpi-software/installed/chromium-autostart.sh` |
 | `kiosk-session.sh` | `/usr/local/bin/kiosk-session.sh` |
+| `refresh-dashboards.sh` | `/usr/local/sbin/refresh-dashboards.sh` |
 | `install.sh` | запускается один раз на NUC |
 
 ## Установка на DietPi
@@ -51,6 +52,25 @@ reboot
 - Пароль: заданный через `tigervncpasswd`
 
 VNC и ротация стартуют из той же X-сессии, что и Chromium (не отдельными systemd-юнитами), чтобы не гоняться с автологином DietPi после reboot.
+
+## Ночной refresh дашбордов
+
+Каждую полночь cron шлёт **F5** на активную вкладку каждые **30 секунд** в течение **3 минут** — подтягивает данные без перезапуска Chromium.
+
+```bash
+# crontab root (ставится через install.sh)
+0 0 * * * /usr/local/sbin/refresh-dashboards.sh >>/var/log/refresh-dashboards.log 2>&1
+```
+
+Лог: `/var/log/refresh-dashboards.log`
+
+Ручной запуск:
+
+```bash
+/usr/local/sbin/refresh-dashboards.sh
+```
+
+`XAUTHORITY=/home/dietpi/.Xauthority` — киоск крутится от пользователя `dietpi`, не root.
 
 ## Полезные правки
 

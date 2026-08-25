@@ -12,6 +12,14 @@ apt-get install -y xdotool unclutter tigervnc-scraping-server
 install -m 755 "$SCRIPT_DIR/kiosk-session.sh" /usr/local/bin/kiosk-session.sh
 install -m 755 "$SCRIPT_DIR/chromium-autostart.sh" \
   /var/lib/dietpi/dietpi-software/installed/chromium-autostart.sh
+install -m 755 "$SCRIPT_DIR/refresh-dashboards.sh" /usr/local/sbin/refresh-dashboards.sh
+
+# Midnight refresh: F5 on active tab every 30s for 3 minutes
+CRON_LINE='0 0 * * * /usr/local/sbin/refresh-dashboards.sh >>/var/log/refresh-dashboards.log 2>&1'
+( crontab -l 2>/dev/null | grep -Fv refresh-dashboards.sh || true
+  echo "$CRON_LINE"
+) | crontab -
+touch /var/log/refresh-dashboards.log
 
 # Prefer 1080p for weak NUC GPU
 if [ -f /boot/dietpi.txt ]; then
