@@ -7,12 +7,14 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 apt-get update
-apt-get install -y xdotool unclutter tigervnc-scraping-server
+apt-get install -y xdotool unclutter tigervnc-scraping-server etherwake android-tools-adb
 
 install -m 755 "$SCRIPT_DIR/kiosk-session.sh" /usr/local/bin/kiosk-session.sh
 install -m 755 "$SCRIPT_DIR/chromium-autostart.sh" \
   /var/lib/dietpi/dietpi-software/installed/chromium-autostart.sh
 install -m 755 "$SCRIPT_DIR/refresh-dashboards.sh" /usr/local/sbin/refresh-dashboards.sh
+install -m 755 "$SCRIPT_DIR/tv_on.sh" /root/tv_on.sh
+install -m 755 "$SCRIPT_DIR/tv_off.sh" /root/tv_off.sh
 
 # Midnight refresh: F5 on active tab every 30s for 3 minutes
 CRON_LINE='0 0 * * * /usr/local/sbin/refresh-dashboards.sh >>/var/log/refresh-dashboards.log 2>&1'

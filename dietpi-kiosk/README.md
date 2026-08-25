@@ -2,7 +2,7 @@
 
 Кастомизации Intel NUC у ТВ: Chromium в **4K (3840×2160@30)**, три дашборда Grafana/Zabbix, авторотация вкладок, ночной F5-refresh, без курсора.
 
-Перед стартом вызывается **`/root/tv_on.sh`** (пробуждение ТВ — CEC или свой скрипт, должен быть на NUC).
+Перед стартом киоска вызывается **`/root/tv_on.sh`**: WOL на MAC ТВ + ADB wake (`192.168.0.2:5555`).
 
 ## Дашборды
 
@@ -19,6 +19,8 @@
 | `chromium-autostart.sh` | `/var/lib/dietpi/dietpi-software/installed/chromium-autostart.sh` |
 | `kiosk-session.sh` | `/usr/local/bin/kiosk-session.sh` |
 | `refresh-dashboards.sh` | `/usr/local/sbin/refresh-dashboards.sh` |
+| `tv_on.sh` | `/root/tv_on.sh` |
+| `tv_off.sh` | `/root/tv_off.sh` |
 | `install.sh` | запускается один раз на NUC |
 
 ## Установка на DietPi
@@ -58,6 +60,24 @@ x0vncserver -display :0 -localhost no -rfbport 5900 \
 ```
 
 Подключение: IP NUC, порт **5900** (в MobaXterm — отдельное поле порта).
+
+## Управление Android TV
+
+| Скрипт | Действие |
+|---|---|
+| `/root/tv_on.sh` | WOL (`d4:5e:ec:f5:01:0d` через `eth0`) → ADB → keyevent 224 (wake) |
+| `/root/tv_off.sh` | ADB → shutdown broadcast или keyevent 223 (sleep) |
+
+Требования на NUC: `etherwake`, `adb` (ставятся через `install.sh`). На ТВ: сеть ADB `192.168.0.2:5555`.
+
+Проверка:
+
+```bash
+/root/tv_on.sh
+/root/tv_off.sh   # усыпить вручную
+```
+
+MAC, IP ADB и интерфейс `eth0` правятся в `tv_on.sh` / `tv_off.sh`.
 
 ## Ночной refresh дашбордов
 
