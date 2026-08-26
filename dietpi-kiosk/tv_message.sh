@@ -4,13 +4,13 @@
 #
 # Interactive:
 #   /root/tv_message.sh
-#   → плашка сверху (Enter = Сообщение)
-#   → текст
+#   → плашка сверху (Enter = пусто)
+#   → текст (Enter = пусто)
 #   → секунды (0 = без таймера, Ctrl+C чтобы снять)
 #
 # Non-interactive:
 #   /root/tv_message.sh "текст" 30
-#   TITLE="Алерт" /root/tv_message.sh "текст" 0
+#   TITLE="Алерт" /root/tv_message.sh "" 0
 #   /root/tv_message.sh "Алерт" "текст" 30
 #
 # After timer (sec > 0): switch TV back to HDMI 3.
@@ -18,7 +18,7 @@
 set -euo pipefail
 
 TV_ADB="${TV_ADB:-192.168.0.2:5555}"
-TITLE="${TITLE:-Сообщение}"
+TITLE="${TITLE-}"
 HTTP_PORT="${HTTP_PORT:-8765}"
 WWW_DIR="${WWW_DIR:-/tmp/tvmsg}"
 PID_FILE="/tmp/tvmsg-http.pid"
@@ -62,18 +62,17 @@ DURATION_SEC=""
 
 if [ "$#" -eq 0 ]; then
   if [ -t 0 ]; then
-    echo -n "Плашка сверху (Enter = Сообщение): "
-    IFS= read -r TITLE_IN
-    TITLE_IN="$(printf '%s' "$TITLE_IN" | tr -d '\r')"
-    [ -n "$TITLE_IN" ] && TITLE="$TITLE_IN"
+    echo -n "Плашка сверху (Enter = пусто): "
+    IFS= read -r TITLE || true
+    TITLE="$(printf '%s' "${TITLE-}" | tr -d '\r')"
 
-    echo -n "Текст для ТВ: "
-    IFS= read -r MSG
+    echo -n "Текст для ТВ (Enter = пусто): "
+    IFS= read -r MSG || true
 
     echo -n "Сколько секунд показывать (0 = без таймера): "
-    IFS= read -r DURATION_SEC
+    IFS= read -r DURATION_SEC || true
   else
-    MSG="$(cat)"
+    MSG="$(cat || true)"
     DURATION_SEC=0
   fi
 elif [ "$#" -eq 1 ]; then
@@ -87,22 +86,22 @@ else
   DURATION_SEC="$3"
 fi
 
-MSG="$(printf '%s' "$MSG" | tr -d '\r')"
-if [ -z "$MSG" ]; then
-  echo "Пустой текст — выход." >&2
-  exit 1
-fi
+MSG="$(printf '%s' "${MSG-}" | tr -d '\r')"
+TITLE="$(printf '%s' "${TITLE-}" | tr -d '\r')"
 
-if [ -z "${DURATION_SEC}" ]; then
+if [ -z "${DURATION_SEC-}" ]; then
   if [ -t 0 ]; then
     echo -n "Сколько секунд показывать (0 = без таймера): "
-    IFS= read -r DURATION_SEC
+    IFS= read -r DURATION_SEC || true
   else
     DURATION_SEC=0
   fi
 fi
 
-DURATION_SEC="$(printf '%s' "$DURATION_SEC" | tr -d '[:space:]')"
+DURATION_SEC="$(printf '%s' "${DURATION_SEC-}" | tr -d '[:space:]')"
+if [ -z "$DURATION_SEC" ]; then
+  DURATION_SEC=0
+fi
 if ! [[ "$DURATION_SEC" =~ ^[0-9]+$ ]]; then
   echo "ERROR: время должно быть целым числом секунд (получено: '$DURATION_SEC')" >&2
   exit 1
@@ -122,8 +121,10 @@ fi
 mkdir -p "$WWW_DIR"
 TITLE="$TITLE" MSG="$MSG" python3 - <<'PY' > "$WWW_DIR/index.html"
 import os, html as H
-title = H.escape(os.environ.get("TITLE", "Сообщение"))
+title = H.escape(os.environ.get("TITLE", ""))
 msg = H.escape(os.environ.get("MSG", "")).replace("\n", "<br>")
+title_html = f"<h1>{title}</h1>" if title else ""
+msg_html = f"<p>{msg}</p>" if msg else ""
 print(f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -134,7 +135,7 @@ font-family:sans-serif;display:flex;align-items:center;justify-content:center}}
 h1{{font-size:6vw;font-weight:700;margin:0 0 3vh;color:#7dd3fc}}
 p{{font-size:4.5vw;line-height:1.35;margin:0}}
 </style></head>
-<body><div class="box"><h1>{title}</h1><p>{msg}</p></div></body></html>""")
+<body><div class="box">{title_html}{msg_html}</div></body></html>""")
 PY
 
 stop_http
@@ -160,7 +161,7 @@ if ! adb -s "$TV_ADB" shell am start \
   exit 1
 fi
 
-echo "На ТВ: $TITLE — $MSG"
+echo "На ТВ: [${TITLE:-∅}] ${MSG:-∅}"
 
 if [ "$DURATION_SEC" -eq 0 ]; then
   echo "Без таймера. Ctrl+C — закрыть HTTP и выйти (HDMI 3 не трогаем)."
