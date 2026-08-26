@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Minimal SOC TV panel: remote, scripts, autofix, messages."""
+"""Minimal SOC TV panel: remote, scripts, autofix, messages (PWA + HTTPS)."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import base64
 import json
 import os
 import signal
+import ssl
 import subprocess
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -25,12 +26,22 @@ MSG_PID = Path("/tmp/tvmsg-panel.pid")
 TV_ON = "/root/tv_on.sh"
 TV_OFF = "/root/tv_off.sh"
 TV_MESSAGE = "/root/tv_message.sh"
+CERT_FILE = Path(os.environ.get("TV_PANEL_CERT", "/etc/tv-panel/cert.pem"))
+KEY_FILE = Path(os.environ.get("TV_PANEL_KEY", "/etc/tv-panel/key.pem"))
 ALLOWED_USERS = {
     u.strip()
     for u in os.environ.get("TV_PANEL_USERS", "root,dietpi").split(",")
     if u.strip()
 }
 PAM_SERVICE = os.environ.get("TV_PANEL_PAM_SERVICE", "login")
+
+# Public paths for PWA install (Chrome needs SW/manifest without Basic challenge loops)
+PUBLIC_PATHS = {
+    "/manifest.webmanifest",
+    "/sw.js",
+    "/icons/icon-192.png",
+    "/icons/icon-512.png",
+}
 
 
 def check_linux_user(username: str, password: str) -> bool:
@@ -190,7 +201,12 @@ def send_json(handler: BaseHTTPRequestHandler, data: dict, code: int = 200) -> N
     handler.wfile.write(body)
 
 
-def send_file(handler: BaseHTTPRequestHandler, path: Path, content_type: str) -> None:
+def send_file(
+    handler: BaseHTTPRequestHandler,
+    path: Path,
+    content_type: str,
+    cache: str = "no-store",
+) -> None:
     if not path.is_file():
         handler.send_error(404)
         return
@@ -198,7 +214,7 @@ def send_file(handler: BaseHTTPRequestHandler, path: Path, content_type: str) ->
     handler.send_response(200)
     handler.send_header("Content-Type", content_type)
     handler.send_header("Content-Length", str(len(data)))
-    handler.send_header("Cache-Control", "no-store")
+    handler.send_header("Cache-Control", cache)
     handler.end_headers()
     handler.wfile.write(data)
 
@@ -234,9 +250,12 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self) -> None:
+        path = urllib.parse.urlparse(self.path).path
+        if path in PUBLIC_PATHS:
+            self.serve_public(path)
+            return
         if not self.require_auth():
             return
-        path = urllib.parse.urlparse(self.path).path
         if path in ("/", "/index.html"):
             send_file(self, ROOT / "index.html", "text/html; charset=utf-8")
         elif path == "/message.html":
@@ -250,6 +269,28 @@ class Handler(BaseHTTPRequestHandler):
                     "message_active": message_active(),
                 },
             )
+        else:
+            self.send_error(404)
+
+    def serve_public(self, path: str) -> None:
+        if path == "/manifest.webmanifest":
+            send_file(
+                self,
+                ROOT / "manifest.webmanifest",
+                "application/manifest+json",
+                cache="public, max-age=300",
+            )
+        elif path == "/sw.js":
+            send_file(
+                self,
+                ROOT / "sw.js",
+                "application/javascript; charset=utf-8",
+                cache="no-cache",
+            )
+        elif path == "/icons/icon-192.png":
+            send_file(self, ROOT / "icons" / "icon-192.png", "image/png", cache="public, max-age=86400")
+        elif path == "/icons/icon-512.png":
+            send_file(self, ROOT / "icons" / "icon-512.png", "image/png", cache="public, max-age=86400")
         else:
             self.send_error(404)
 
@@ -313,6 +354,10 @@ def main() -> None:
     if pam_mod is None:
         raise SystemExit("python3-pam required (apt install python3-pam, import PAM)")
     server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
+    if CERT_FILE.is_file() and KEY_FILE.is_file():
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ctx.load_cert_chain(str(CERT_FILE), str(KEY_FILE))
+        server.socket = ctx.wrap_socket(server.socket, server_side=True)
     server.serve_forever()
 
 

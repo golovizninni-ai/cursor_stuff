@@ -3,7 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#12151a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="TV пульт">
 <title>TV пульт</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
 <style>
 :root {
   --bg: #12151a;
@@ -72,6 +79,7 @@ input[type=checkbox] { width: 1.25rem; height: 1.25rem; }
   <a class="active" href="/">Пульт</a>
   <a href="/message.html">Сообщение</a>
 </nav>
+<button type="button" id="install" hidden style="width:min(360px,100%);margin-bottom:1rem;border:0;border-radius:10px;background:#243548;color:#cfe6f8;padding:.75rem;font-size:.95rem;cursor:pointer;min-height:44px">Установить на рабочий стол</button>
 <div id="status">
   <span>ADB: <b id="adb">…</b></span>
   <span>Автофикс: <b id="autofix">…</b></span>
@@ -157,6 +165,29 @@ document.querySelectorAll('[data-act]').forEach((btn) => {
 
 refresh();
 setInterval(refresh, 5000);
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
+let deferredPrompt = null;
+const installBtn = document.getElementById('install');
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  installBtn.hidden = false;
+});
+installBtn.addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  await deferredPrompt.userChoice.catch(() => {});
+  deferredPrompt = null;
+  installBtn.hidden = true;
+});
+window.addEventListener('appinstalled', () => {
+  deferredPrompt = null;
+  installBtn.hidden = true;
+});
 </script>
 </body>
 </html>

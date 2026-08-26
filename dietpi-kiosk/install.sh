@@ -26,14 +26,28 @@ install -m 755 "$SCRIPT_DIR/ir/capture-xiaomi-power.sh" /root/ir/capture-xiaomi-
 install -m 644 "$SCRIPT_DIR/ir/README.md" /root/ir/README.md
 install -m 644 "$SCRIPT_DIR/ir/xiaomi_power.ir.example" /root/ir/xiaomi_power.ir.example
 
-# Web panel
-mkdir -p /usr/local/lib/tv_panel
+# Web panel (PWA over HTTPS — use wildcard *.vls.lan certs in /etc/tv-panel/)
+mkdir -p /usr/local/lib/tv_panel/icons /etc/tv-panel
 install -m 644 "$SCRIPT_DIR/tv_panel/server.py" /usr/local/lib/tv_panel/server.py
 install -m 644 "$SCRIPT_DIR/tv_panel/index.html" /usr/local/lib/tv_panel/index.html
 install -m 644 "$SCRIPT_DIR/tv_panel/message.html" /usr/local/lib/tv_panel/message.html
+install -m 644 "$SCRIPT_DIR/tv_panel/manifest.webmanifest" /usr/local/lib/tv_panel/manifest.webmanifest
+install -m 644 "$SCRIPT_DIR/tv_panel/sw.js" /usr/local/lib/tv_panel/sw.js
+install -m 644 "$SCRIPT_DIR/tv_panel/icons/icon-192.png" /usr/local/lib/tv_panel/icons/icon-192.png
+install -m 644 "$SCRIPT_DIR/tv_panel/icons/icon-512.png" /usr/local/lib/tv_panel/icons/icon-512.png
+if [ -f "$SCRIPT_DIR/certs/website.crt" ] && [ -f "$SCRIPT_DIR/certs/website.key" ]; then
+  install -m 644 "$SCRIPT_DIR/certs/website.crt" /etc/tv-panel/cert.pem
+  install -m 640 "$SCRIPT_DIR/certs/website.key" /etc/tv-panel/key.pem
+fi
+if [ ! -f /etc/tv-panel/cert.pem ] || [ ! -f /etc/tv-panel/key.pem ]; then
+  echo "ERROR: missing TLS certs. Put wildcard cert at /etc/tv-panel/cert.pem + key.pem" >&2
+  echo "  (or dietpi-kiosk/certs/website.crt + website.key before install)" >&2
+  exit 1
+fi
 install -m 644 "$SCRIPT_DIR/tv-panel.service" /etc/systemd/system/tv-panel.service
 systemctl daemon-reload
 systemctl enable --now tv-panel.service
+systemctl restart tv-panel.service
 
 # Autofix on by default
 touch /root/tv_autofix.enabled
@@ -80,6 +94,6 @@ systemctl disable --now kiosk-rotate.service 2>/dev/null || true
 systemctl disable --now kiosk-vnc.service 2>/dev/null || true
 
 echo "Installed. Reboot to start kiosk: reboot"
-echo "TV panel: http://<NUC-IP>:8787/"
+echo "TV panel (PWA): https://ozii-dash.vls.lan:8787/  (root/dietpi PAM)"
 echo "Cold TV: plug USB IR, run /root/ir/capture-xiaomi-power.sh, then /root/tv_ir_power.sh"
 echo "VNC: host=<NUC-IP> port=5900 (MobaXterm: host and port in separate fields)"
