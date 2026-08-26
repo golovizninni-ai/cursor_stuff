@@ -76,7 +76,7 @@ x0vncserver -display :0 -localhost no -rfbport 5900 \
 | `/root/tv_ir_power.sh` | ИК Power через **USB** (`ir-ctl` / `irsend`) |
 | `/root/tv_off.sh` | ADB sleep/shutdown; `IR_POWER=1` — ещё и USB IR toggle |
 | `/root/tv_message.sh` | Вывести текст на ТВ через ADB (уведомление + HTML) |
-| `/root/tv_healthcheck.sh` | Раз в минуту (Пн–Пт 8:30–18:30): ADB offline → WOL; sleep при живом ADB → wake + HDMI 3 |
+| `/root/tv_healthcheck.sh` | Раз в минуту (Пн–Пт 8:30–18:30): не Awake/Display ON или ADB down → вызывает `/root/tv_on.sh` |
 | `/root/tv_hdmi_watchdog.sh` | Раз в 5 мин в том же окне: не HDMI 3 → popup + tap |
 | `/root/ir/capture-xiaomi-power.sh` | Снять `xiaomi_power.ir` с пульта |
 

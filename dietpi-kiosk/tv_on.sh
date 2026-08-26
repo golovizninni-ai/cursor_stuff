@@ -9,6 +9,8 @@
 
 set -euo pipefail
 
+export PATH="/usr/sbin:/usr/bin:/bin:${PATH:-}"
+
 TV_ADB="${TV_ADB:-192.168.0.2:5555}"
 TV_MAC="${TV_MAC:-d4:5e:ec:f5:01:0d}"
 TV_IFACE="${TV_IFACE:-eth0}"
