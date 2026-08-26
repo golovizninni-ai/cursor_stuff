@@ -71,6 +71,7 @@ x0vncserver -display :0 -localhost no -rfbport 5900 \
 | `/root/tv_on.sh` | Soft: ADB wake → HDMI 3. Cold: WOL + **USB IR Power** → wait ADB → wake → HDMI 3 |
 | `/root/tv_ir_power.sh` | ИК Power через **USB** (`ir-ctl` / `irsend`) |
 | `/root/tv_off.sh` | ADB sleep/shutdown; `IR_POWER=1` — ещё и USB IR toggle |
+| `/root/tv_message.sh` | Вывести текст на ТВ через ADB (уведомление + HTML) |
 | `/root/ir/capture-xiaomi-power.sh` | Снять `xiaomi_power.ir` с пульта |
 
 Требования на NUC: `etherwake`, `adb`, `v4l-utils`. На ТВ: сеть ADB `192.168.0.2:5555`.
@@ -110,6 +111,8 @@ ls -l /dev/lirc*
 /root/tv_on.sh          # soft, если ТВ уже в сети
 /root/tv_ir_power.sh    # только ИК Power
 /root/tv_off.sh         # усыпить вручную
+/root/tv_message.sh "Текст на весь экран"
+TITLE="Алерт" DURATION_SEC=30 /root/tv_message.sh Проверка
 ```
 
 MAC, IP ADB и интерфейс `eth0` правятся в `tv_on.sh` / `tv_off.sh` (`TV_ADB`, `TV_MAC`, `TV_IFACE`, `ADB_WAIT_SEC`).

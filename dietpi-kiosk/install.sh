@@ -17,6 +17,7 @@ install -m 755 "$SCRIPT_DIR/tv_on.sh" /root/tv_on.sh
 install -m 755 "$SCRIPT_DIR/tv_off.sh" /root/tv_off.sh
 install -m 755 "$SCRIPT_DIR/tv_ir_power.sh" /root/tv_ir_power.sh
 install -m 755 "$SCRIPT_DIR/test-ir-cycle.sh" /root/test-ir-cycle.sh
+install -m 755 "$SCRIPT_DIR/tv_message.sh" /root/tv_message.sh
 
 mkdir -p /root/ir
 install -m 755 "$SCRIPT_DIR/ir/capture-xiaomi-power.sh" /root/ir/capture-xiaomi-power.sh
