@@ -65,29 +65,19 @@ x0vncserver -display :0 -localhost no -rfbport 5900 \
 
 | Скрипт | Действие |
 |---|---|
-| `/root/tv_on.sh` | WOL → ADB wake → **HDMI 3** (Xiaomi) |
+| `/root/tv_on.sh` | WOL → ADB wake → попап источников → **tap HDMI 3** |
 | `/root/tv_off.sh` | ADB → shutdown broadcast или keyevent 223 (sleep) |
 
 Требования на NUC: `etherwake`, `adb` (ставятся через `install.sh`). На ТВ: сеть ADB `192.168.0.2:5555`.
 
-### HDMI 3 на Xiaomi
+### HDMI 3 на Xiaomi (MediaTek)
 
-В `tv_on.sh` пробуются по очереди:
+На этом ТВ нет рабочего `keyevent 245` / passthrough intent. Рабочая схема:
 
-1. `com.xiaomi.mitv.tvplayer.ExternalSourceActivity --ei input 25` (HDMI1=23, HDMI2=24, HDMI3=25)
-2. DroidLogic passthrough `Hdmi3InputService/HW7`
-3. `keyevent 245` (запасной)
+1. `am start -a com.mitv.tvhome.atv.app.tv.INPUTSOURCE_POPUP`
+2. `input tap 640 410` — плитка **HDMI 3** в сетке (1920×1080)
 
-Если не переключает — узнать правильный `input` / URI на ТВ:
-
-```bash
-adb connect 192.168.0.2:5555
-adb shell dumpsys tv_input
-# вручную переключите на HDMI3 пультом, затем:
-adb logcat -d | grep -iE 'ExternalSource|passthrough|HDMI|newSource'
-```
-
-Поправьте `XIAOMI_HDMI3_INPUT` или URI в `/root/tv_on.sh`.
+Соответствие портов: HW2=HDMI1, HW3=HDMI2, HW4=HDMI3.
 
 Проверка:
 
