@@ -115,7 +115,10 @@ input[type=checkbox] { width: 1.25rem; height: 1.25rem; }
 
 <script>
 async function api(path, body) {
-  const opts = { method: body === undefined ? 'GET' : 'POST' };
+  const opts = {
+    method: body === undefined ? 'GET' : 'POST',
+    credentials: 'same-origin',
+  };
   if (body !== undefined) {
     opts.headers = { 'Content-Type': 'application/json' };
     opts.body = JSON.stringify(body);

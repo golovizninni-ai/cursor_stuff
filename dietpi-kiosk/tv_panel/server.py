@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import signal
@@ -10,6 +11,11 @@ import subprocess
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+
+try:
+    import pam as pam_mod
+except ImportError:  # pragma: no cover
+    pam_mod = None
 
 ROOT = Path(__file__).resolve().parent
 TV_ADB = os.environ.get("TV_ADB", "192.168.0.2:5555")
@@ -19,6 +25,24 @@ MSG_PID = Path("/tmp/tvmsg-panel.pid")
 TV_ON = "/root/tv_on.sh"
 TV_OFF = "/root/tv_off.sh"
 TV_MESSAGE = "/root/tv_message.sh"
+ALLOWED_USERS = {
+    u.strip()
+    for u in os.environ.get("TV_PANEL_USERS", "root,dietpi").split(",")
+    if u.strip()
+}
+PAM_SERVICE = os.environ.get("TV_PANEL_PAM_SERVICE", "login")
+
+
+def check_linux_user(username: str, password: str) -> bool:
+    if username not in ALLOWED_USERS or not password:
+        return False
+    if pam_mod is None:
+        return False
+    auth = pam_mod.pam()
+    try:
+        return bool(auth.authenticate(username, password, service=PAM_SERVICE))
+    except Exception:
+        return False
 
 
 def adb(*args: str, timeout: float = 8) -> subprocess.CompletedProcess:
@@ -110,7 +134,6 @@ def stop_message() -> None:
 
 def start_message(title: str, text: str, seconds: int) -> None:
     stop_message()
-    # argv form preserves empty title/body
     proc = subprocess.Popen(
         [TV_MESSAGE, title, text, str(seconds)],
         stdout=subprocess.DEVNULL,
@@ -164,7 +187,35 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt: str, *args) -> None:
         return
 
+    def require_auth(self) -> bool:
+        hdr = self.headers.get("Authorization", "")
+        if not hdr.startswith("Basic "):
+            self.send_auth_required()
+            return False
+        try:
+            raw = base64.b64decode(hdr[6:].strip()).decode("utf-8")
+            user, password = raw.split(":", 1)
+        except (ValueError, UnicodeDecodeError, base64.binascii.Error):
+            self.send_auth_required()
+            return False
+        if not check_linux_user(user, password):
+            self.send_auth_required()
+            return False
+        return True
+
+    def send_auth_required(self) -> None:
+        body = b"Unauthorized"
+        self.send_response(401)
+        self.send_header("WWW-Authenticate", 'Basic realm="TV Panel"')
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_GET(self) -> None:
+        if not self.require_auth():
+            return
         path = urllib.parse.urlparse(self.path).path
         if path in ("/", "/index.html"):
             send_file(self, ROOT / "index.html", "text/html; charset=utf-8")
@@ -183,6 +234,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_error(404)
 
     def do_POST(self) -> None:
+        if not self.require_auth():
+            return
         path = urllib.parse.urlparse(self.path).path
         try:
             data = read_json(self)
@@ -237,6 +290,8 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
+    if pam_mod is None:
+        raise SystemExit("python3-pam required (apt install python3-pam)")
     server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     server.serve_forever()
 

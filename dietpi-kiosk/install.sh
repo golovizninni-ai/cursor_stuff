@@ -7,7 +7,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 apt-get update
-apt-get install -y xdotool unclutter tigervnc-scraping-server etherwake android-tools-adb v4l-utils
+apt-get install -y xdotool unclutter tigervnc-scraping-server etherwake android-tools-adb v4l-utils python3-pam
 
 install -m 755 "$SCRIPT_DIR/kiosk-session.sh" /usr/local/bin/kiosk-session.sh
 install -m 755 "$SCRIPT_DIR/chromium-autostart.sh" \

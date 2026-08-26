@@ -89,7 +89,8 @@ x0vncserver -display :0 -localhost no -rfbport 5900 \
 `http://<NUC-IP>:8787/` — пульт (D-pad, громкость, HDMI 3, TV ON/OFF, автофикс).  
 `http://<NUC-IP>:8787/message.html` — плашка/текст/секунды → `tv_message.sh`, кнопка «Снять».
 
-Сервис: `systemctl status tv-panel`. Порт **8787**, без auth (LAN).
+Сервис: `systemctl status tv-panel`. Порт **8787**.  
+**HTTP Basic Auth** через PAM Linux: только пользователи **`root`** и **`dietpi`** (их системные пароли).
 
 ### Soft vs cold
 
