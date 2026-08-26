@@ -7,7 +7,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 apt-get update
-apt-get install -y xdotool unclutter tigervnc-scraping-server etherwake android-tools-adb v4l-utils
+apt-get install -y xdotool unclutter tigervnc-scraping-server etherwake android-tools-adb alsa-utils python3
 
 install -m 755 "$SCRIPT_DIR/kiosk-session.sh" /usr/local/bin/kiosk-session.sh
 install -m 755 "$SCRIPT_DIR/chromium-autostart.sh" \
@@ -18,9 +18,14 @@ install -m 755 "$SCRIPT_DIR/tv_off.sh" /root/tv_off.sh
 install -m 755 "$SCRIPT_DIR/tv_ir_power.sh" /root/tv_ir_power.sh
 
 mkdir -p /root/ir
-install -m 755 "$SCRIPT_DIR/ir/capture-xiaomi-power.sh" /root/ir/capture-xiaomi-power.sh
+install -m 755 "$SCRIPT_DIR/ir/generate-xiaomi-power-wav.py" /root/ir/generate-xiaomi-power-wav.py
 install -m 644 "$SCRIPT_DIR/ir/README.md" /root/ir/README.md
-install -m 644 "$SCRIPT_DIR/ir/xiaomi_power.ir.example" /root/ir/xiaomi_power.ir.example
+# optional legacy capture helper (needs USB RX — not used in jack-only setup)
+if [ -f "$SCRIPT_DIR/ir/capture-xiaomi-power.sh" ]; then
+  install -m 755 "$SCRIPT_DIR/ir/capture-xiaomi-power.sh" /root/ir/capture-xiaomi-power.sh
+fi
+
+python3 /root/ir/generate-xiaomi-power-wav.py /root/ir/xiaomi_power.wav
 
 # Midnight refresh: F5 on active tab every 30s for 3 minutes
 CRON_LINE='0 0 * * * /usr/local/sbin/refresh-dashboards.sh >>/var/log/refresh-dashboards.log 2>&1'
@@ -49,5 +54,5 @@ systemctl disable --now kiosk-rotate.service 2>/dev/null || true
 systemctl disable --now kiosk-vnc.service 2>/dev/null || true
 
 echo "Installed. Reboot to start kiosk: reboot"
-echo "Cold TV power: plug USB IR blaster, run /root/ir/capture-xiaomi-power.sh (see /root/ir/README.md)"
+echo "Cold TV: plug 3.5mm IR blaster into headphone jack, aim at TV, test: /root/tv_ir_power.sh"
 echo "VNC: host=<NUC-IP> port=5900 (MobaXterm: host and port in separate fields)"

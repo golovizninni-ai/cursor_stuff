@@ -1,41 +1,45 @@
-# IR codes for Xiaomi TV cold power-on
+# IR Power через 3.5mm jack (без USB)
 
-NUC currently has **no USB IR** (`lsusb` / `/dev/lirc*` empty). Analog out is **ALC255** (`hw:0,0`) — suitable only for an experimental 3.5mm jack blaster.
+На NUC: **ALC255 Analog** (`plughw:0,0`). USB IR не используется.
 
-## Recommended hardware
+## Железо
 
-1. **USB IR blaster** (preferred for 24/7 kiosk) — creates `/dev/lirc0`, works with `ir-ctl`.
-2. **3.5mm jack IR emitter** — experimental; needs a pre-recorded `xiaomi_power.wav` (38 kHz carrier). Unreliable on Intel NUC combo jacks.
+1. Воткните ИК-передатчик с джеком в **наушники** NUC (не mic).  
+2. Направьте светодиод в ИК-окно Xiaomi (близко, прямо, без стекла под углом).  
+3. Громкость ALSA поднимается скриптом на 100% при отправке.
 
-## Capture Power from the original remote
+## Генерация WAV
 
-On NUC after plugging USB IR RX/TX:
+Код Power — Xiaomi RC-MM variant (`D=0x3C F=0xCC`), несущая 36 kHz:
 
 ```bash
-apt-get install -y v4l-utils
-cp capture-xiaomi-power.sh /root/ir/
-chmod +x /root/ir/capture-xiaomi-power.sh
-/root/ir/capture-xiaomi-power.sh
-# press Power on Xiaomi remote once
+python3 /root/ir/generate-xiaomi-power-wav.py /root/ir/xiaomi_power.wav
 ```
 
-Produces `/root/ir/xiaomi_power.ir`. Test:
+`install.sh` делает это автоматически.
+
+## Проверка
 
 ```bash
-ir-ctl -d /dev/lirc0 --send=/root/ir/xiaomi_power.ir
-# or
+# ТВ cold/off, смотрите на экран
 /root/tv_ir_power.sh
+
+# полный cold path
+/root/tv_on.sh
 ```
 
-## Files
+Если не включает:
 
-| Path on NUC | Purpose |
+- проверьте, что джек в **output**, LED смотрит в приёмник;
+- `aplay -l` — должен быть `card 0: PCH ... device 0: ALC255 Analog`;
+- смените устройство: `IR_ALSA_DEVICE=plughw:0,0 /root/tv_ir_power.sh`;
+- протокол у моделей Xiaomi отличается — тогда нужен другой D/F в `generate-xiaomi-power-wav.py` или умная розетка.
+
+## Файлы
+
+| Path | Purpose |
 |---|---|
-| `/root/ir/xiaomi_power.ir` | Raw pulse file for `ir-ctl` (create via capture) |
-| `/root/ir/xiaomi_power.wav` | Optional experimental jack WAV |
-| `/root/ir/xiaomi_power.ir.example` | Placeholder documenting expected format |
-| `/root/tv_ir_power.sh` | Sends Power via ir-ctl / irsend / aplay |
-
-## Confirm cold boot
-
-After mains power returns, Xiaomi must turn on with **IR Power** from the original remote (Bluetooth remotes may not wake a fully dead TV). If remote Power works, this IR path will too once codes + blaster are in place.
+| `/root/ir/xiaomi_power.wav` | ИК Power как звук |
+| `/root/ir/generate-xiaomi-power-wav.py` | генератор WAV |
+| `/root/tv_ir_power.sh` | `aplay` на jack |
+| `/root/tv_on.sh` | cold: WOL + IR jack + wait ADB + HDMI 3 |
