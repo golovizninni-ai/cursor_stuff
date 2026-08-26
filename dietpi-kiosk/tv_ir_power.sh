@@ -1,45 +1,97 @@
 #!/bin/bash
-# Send IR Power to Xiaomi TV via 3.5mm jack (ALSA) — jack-only setup.
+# Send IR Power to Xiaomi TV via 3.5mm jack — boosted ALSA path.
 # Target: /root/tv_ir_power.sh
-#
-# Requires: IR emitter in headphone jack, aimed at TV IR window.
-# WAV: /root/ir/xiaomi_power.wav (generate with generate-xiaomi-power-wav.py)
 
 set -euo pipefail
 
 IR_DIR="${IR_DIR:-/root/ir}"
 WAV_FILE="${IR_DIR}/xiaomi_power.wav"
-# Prefer analog headphone out, not HDMI
+WAV_36="${IR_DIR}/xiaomi_power_36k.wav"
+WAV_38="${IR_DIR}/xiaomi_power_38k.wav"
+# Analog headphone (not HDMI)
 IR_ALSA_DEVICE="${IR_ALSA_DEVICE:-plughw:0,0}"
-REPEATS="${IR_REPEATS:-2}"
+REPEATS="${IR_REPEATS:-4}"
 
-if [ ! -f "$WAV_FILE" ]; then
-  if [ -x "${IR_DIR}/generate-xiaomi-power-wav.py" ]; then
-    python3 "${IR_DIR}/generate-xiaomi-power-wav.py" "$WAV_FILE"
-  else
-    echo "ERROR: missing $WAV_FILE — run generate-xiaomi-power-wav.py" >&2
+mkdir -p "$IR_DIR"
+GEN="${IR_DIR}/generate-xiaomi-power-wav.py"
+
+regen() {
+  python3 "$GEN" "$WAV_38" 38000
+  python3 "$GEN" "$WAV_36" 36000
+  cp -f "$WAV_38" "$WAV_FILE"
+}
+
+if [ ! -x "$GEN" ] && [ -f "$GEN" ]; then
+  chmod +x "$GEN" || true
+fi
+
+if [ ! -f "$WAV_38" ] || [ ! -f "$WAV_36" ] || [ "${IR_REGEN:-0}" = "1" ]; then
+  if [ -f "$GEN" ]; then
+    regen
+  elif [ ! -f "$WAV_FILE" ]; then
+    echo "ERROR: missing WAV and generator" >&2
     exit 1
   fi
 fi
 
-if ! command -v aplay >/dev/null 2>&1; then
-  echo "ERROR: aplay not found (install alsa-utils)" >&2
+command -v aplay >/dev/null 2>&1 || {
+  echo "ERROR: aplay not found" >&2
   exit 1
+}
+
+# Max analog output
+amixer -c 0 sset Master unmute 100% 2>/dev/null || true
+amixer -c 0 -- sset Master 87 2>/dev/null || true
+# Softvol boost > 0 dB if present
+amixer -c 0 sset IRBoost 100% 2>/dev/null || true
+
+# Optional ALSA softvol wrapper (created once)
+ASOUND="/root/.asoundrc"
+if [ ! -f "$ASOUND" ] || ! grep -q 'pcm.irboost' "$ASOUND" 2>/dev/null; then
+  cat > "$ASOUND" << 'EOF'
+pcm.irboost {
+  type softvol
+  slave.pcm "plughw:0,0"
+  control {
+    name "IRBoost"
+    card 0
+  }
+  min_dB -10.0
+  max_dB 20.0
+  resolution 100
+}
+EOF
 fi
 
-# Unmute / raise analog playback (ignore failures on missing controls)
-amixer -c 0 sset Master unmute 100% 2>/dev/null || true
-amixer -c 0 sset Speaker unmute 100% 2>/dev/null || true
-amixer -c 0 sset Headphone unmute 100% 2>/dev/null || true
-amixer -c 0 sset PCM unmute 100% 2>/dev/null || true
+# Prefer softvol device if mixer exists after first open
+PLAY_DEV="$IR_ALSA_DEVICE"
+if amixer -c 0 sget IRBoost >/dev/null 2>&1; then
+  amixer -c 0 sset IRBoost 100% 2>/dev/null || true
+  PLAY_DEV="irboost"
+fi
 
-echo "IR Power via ALSA device ${IR_ALSA_DEVICE} ($WAV_FILE)"
-i=0
-while [ "$i" -lt "$REPEATS" ]; do
-  aplay -D "$IR_ALSA_DEVICE" -q "$WAV_FILE"
-  i=$((i + 1))
-  [ "$i" -lt "$REPEATS" ] && sleep 0.4
-done
+blast() {
+  local wav="$1"
+  local label="$2"
+  echo "IR blast $label -> $PLAY_DEV ($wav)"
+  local i=0
+  while [ "$i" -lt "$REPEATS" ]; do
+    aplay -D "$PLAY_DEV" -q "$wav" 2>/dev/null || aplay -D "$IR_ALSA_DEVICE" -q "$wav"
+    i=$((i + 1))
+    [ "$i" -lt "$REPEATS" ] && sleep 0.25
+  done
+}
 
-echo "IR Power blast done (jack). Aim LED at TV IR receiver."
+# First play creates IRBoost control; retry softvol path
+aplay -D irboost -q /dev/zero 2>/dev/null || true
+if amixer -c 0 sget IRBoost >/dev/null 2>&1; then
+  amixer -c 0 sset IRBoost 100% >/dev/null
+  PLAY_DEV="irboost"
+  echo "Using softvol IRBoost +20 dB max on $IR_ALSA_DEVICE"
+fi
+
+blast "${WAV_38:-$WAV_FILE}" "38 kHz"
+blast "${WAV_36:-$WAV_FILE}" "36 kHz"
+
+echo "IR Power blast done (boosted jack). LED must face TV IR window closely."
 exit 0
