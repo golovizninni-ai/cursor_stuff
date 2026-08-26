@@ -16,6 +16,7 @@ install -m 755 "$SCRIPT_DIR/refresh-dashboards.sh" /usr/local/sbin/refresh-dashb
 install -m 755 "$SCRIPT_DIR/tv_on.sh" /root/tv_on.sh
 install -m 755 "$SCRIPT_DIR/tv_off.sh" /root/tv_off.sh
 install -m 755 "$SCRIPT_DIR/tv_ir_power.sh" /root/tv_ir_power.sh
+install -m 755 "$SCRIPT_DIR/test-ir-cycle.sh" /root/test-ir-cycle.sh
 
 mkdir -p /root/ir
 install -m 755 "$SCRIPT_DIR/ir/generate-xiaomi-power-wav.py" /root/ir/generate-xiaomi-power-wav.py
