@@ -18,11 +18,25 @@ install -m 755 "$SCRIPT_DIR/tv_off.sh" /root/tv_off.sh
 install -m 755 "$SCRIPT_DIR/tv_ir_power.sh" /root/tv_ir_power.sh
 install -m 755 "$SCRIPT_DIR/test-ir-cycle.sh" /root/test-ir-cycle.sh
 install -m 755 "$SCRIPT_DIR/tv_message.sh" /root/tv_message.sh
+install -m 755 "$SCRIPT_DIR/tv_healthcheck.sh" /root/tv_healthcheck.sh
+install -m 755 "$SCRIPT_DIR/tv_hdmi_watchdog.sh" /root/tv_hdmi_watchdog.sh
 
 mkdir -p /root/ir
 install -m 755 "$SCRIPT_DIR/ir/capture-xiaomi-power.sh" /root/ir/capture-xiaomi-power.sh
 install -m 644 "$SCRIPT_DIR/ir/README.md" /root/ir/README.md
 install -m 644 "$SCRIPT_DIR/ir/xiaomi_power.ir.example" /root/ir/xiaomi_power.ir.example
+
+# Web panel
+mkdir -p /usr/local/lib/tv_panel
+install -m 644 "$SCRIPT_DIR/tv_panel/server.py" /usr/local/lib/tv_panel/server.py
+install -m 644 "$SCRIPT_DIR/tv_panel/index.html" /usr/local/lib/tv_panel/index.html
+install -m 644 "$SCRIPT_DIR/tv_panel/message.html" /usr/local/lib/tv_panel/message.html
+install -m 644 "$SCRIPT_DIR/tv-panel.service" /etc/systemd/system/tv-panel.service
+systemctl daemon-reload
+systemctl enable --now tv-panel.service
+
+# Autofix on by default
+touch /root/tv_autofix.enabled
 
 # Remove obsolete audio-jack IR artifacts if present
 rm -f /root/ir/generate-xiaomi-power-wav.py \
@@ -30,13 +44,22 @@ rm -f /root/ir/generate-xiaomi-power-wav.py \
   /root/ir/xiaomi_power_36k.wav \
   /root/ir/xiaomi_power_38k.wav
 rm -f /root/.asoundrc
-# drop softvol control if it was created (ignore errors)
 amixer -c 0 sset IRBoost 0% 2>/dev/null || true
 
-# Midnight refresh: F5 on active tab every 30s for 3 minutes
-CRON_LINE='0 0 * * * /usr/local/sbin/refresh-dashboards.sh >>/var/log/refresh-dashboards.log 2>&1'
-( crontab -l 2>/dev/null | grep -Fv refresh-dashboards.sh || true
-  echo "$CRON_LINE"
+# Crontab: midnight refresh + work-hours ADB health + HDMI watchdog
+(
+  crontab -l 2>/dev/null \
+    | grep -Fv refresh-dashboards.sh \
+    | grep -Fv tv_healthcheck.sh \
+    | grep -Fv tv_hdmi_watchdog.sh \
+    || true
+  echo '0 0 * * * /usr/local/sbin/refresh-dashboards.sh >>/var/log/refresh-dashboards.log 2>&1'
+  echo '* 9-17 * * 1-5 /root/tv_healthcheck.sh'
+  echo '30-59 8 * * 1-5 /root/tv_healthcheck.sh'
+  echo '0-30 18 * * 1-5 /root/tv_healthcheck.sh'
+  echo '*/5 9-17 * * 1-5 /root/tv_hdmi_watchdog.sh'
+  echo '30,35,40,45,50,55 8 * * 1-5 /root/tv_hdmi_watchdog.sh'
+  echo '0,5,10,15,20,25,30 18 * * 1-5 /root/tv_hdmi_watchdog.sh'
 ) | crontab -
 touch /var/log/refresh-dashboards.log
 
@@ -46,19 +69,17 @@ if [ -f /boot/dietpi.txt ]; then
   sed -i 's/^SOFTWARE_CHROMIUM_RES_Y=.*/SOFTWARE_CHROMIUM_RES_Y=2160/' /boot/dietpi.txt
 fi
 
-# Ensure Chromium kiosk autostart (index 11)
 echo 11 > /boot/dietpi/.dietpi-autostart_index
 
-# VNC password for user dietpi (interactive if missing)
 if [ ! -f /home/dietpi/.config/tigervnc/passwd ]; then
   echo "Set VNC password for user dietpi:"
   sudo -u dietpi tigervncpasswd
 fi
 
-# Disable leftover systemd units from earlier attempts (if present)
 systemctl disable --now kiosk-rotate.service 2>/dev/null || true
 systemctl disable --now kiosk-vnc.service 2>/dev/null || true
 
 echo "Installed. Reboot to start kiosk: reboot"
+echo "TV panel: http://<NUC-IP>:8787/"
 echo "Cold TV: plug USB IR, run /root/ir/capture-xiaomi-power.sh, then /root/tv_ir_power.sh"
 echo "VNC: host=<NUC-IP> port=5900 (MobaXterm: host and port in separate fields)"

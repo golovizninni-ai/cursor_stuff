@@ -1,0 +1,17 @@
+[Unit]
+Description=SOC TV web panel (remote + message)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/usr/local/lib/tv_panel
+ExecStart=/usr/bin/python3 /usr/local/lib/tv_panel/server.py
+Restart=always
+RestartSec=3
+Environment=TV_ADB=192.168.0.2:5555
+Environment=TV_PANEL_PORT=8787
+Environment=AUTOFIX_FLAG=/root/tv_autofix.enabled
+
+[Install]
+WantedBy=multi-user.target

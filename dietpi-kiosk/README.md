@@ -22,6 +22,10 @@
 | `tv_on.sh` | `/root/tv_on.sh` |
 | `tv_ir_power.sh` | `/root/tv_ir_power.sh` (USB IR hook) |
 | `tv_off.sh` | `/root/tv_off.sh` |
+| `tv_message.sh` | `/root/tv_message.sh` |
+| `tv_healthcheck.sh` | `/root/tv_healthcheck.sh` |
+| `tv_hdmi_watchdog.sh` | `/root/tv_hdmi_watchdog.sh` |
+| `tv_panel/*` | `/usr/local/lib/tv_panel/` + `tv-panel.service` |
 | `test-ir-cycle.sh` | `/root/test-ir-cycle.sh` |
 | `ir/*` | `/root/ir/` (capture + USB IR codes) |
 | `install.sh` | запускается один раз на NUC |
@@ -72,9 +76,20 @@ x0vncserver -display :0 -localhost no -rfbport 5900 \
 | `/root/tv_ir_power.sh` | ИК Power через **USB** (`ir-ctl` / `irsend`) |
 | `/root/tv_off.sh` | ADB sleep/shutdown; `IR_POWER=1` — ещё и USB IR toggle |
 | `/root/tv_message.sh` | Вывести текст на ТВ через ADB (уведомление + HTML) |
+| `/root/tv_healthcheck.sh` | Раз в минуту (Пн–Пт 8:30–18:30): ADB offline → WOL + soft wake |
+| `/root/tv_hdmi_watchdog.sh` | Раз в 5 мин в том же окне: не HDMI 3 → popup + tap |
 | `/root/ir/capture-xiaomi-power.sh` | Снять `xiaomi_power.ir` с пульта |
 
+Автофикс: флаг `/root/tv_autofix.enabled` (есть = вкл). Без логов — только фикс. Cold IR из cron не вызывается. Во время `tv_message` (WebView) HDMI-watchdog не трогает вход.
+
 Требования на NUC: `etherwake`, `adb`, `v4l-utils`. На ТВ: сеть ADB `192.168.0.2:5555`.
+
+### Веб-панель
+
+`http://<NUC-IP>:8787/` — пульт (D-pad, громкость, HDMI 3, TV ON/OFF, автофикс).  
+`http://<NUC-IP>:8787/message.html` — плашка/текст/секунды → `tv_message.sh`, кнопка «Снять».
+
+Сервис: `systemctl status tv-panel`. Порт **8787**, без auth (LAN).
 
 ### Soft vs cold
 

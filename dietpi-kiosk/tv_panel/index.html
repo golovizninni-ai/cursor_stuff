@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TV пульт</title>
+<style>
+:root {
+  --bg: #12151a;
+  --panel: #1a1f27;
+  --btn: #2a3140;
+  --btn-h: #3a4458;
+  --text: #e8eef5;
+  --muted: #8b97a8;
+  --accent: #5b9fd4;
+  --danger: #c45c5c;
+  --ok: #5aa879;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; min-height: 100vh;
+  background: var(--bg); color: var(--text);
+  font-family: "Segoe UI", system-ui, sans-serif;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 1rem;
+}
+nav {
+  display: flex; gap: .75rem; margin-bottom: 1rem;
+  width: min(360px, 100%);
+}
+nav a {
+  flex: 1; text-align: center; text-decoration: none;
+  color: var(--muted); padding: .55rem; border-radius: 8px;
+  background: var(--panel); font-size: .9rem;
+}
+nav a.active { color: var(--text); outline: 1px solid var(--accent); }
+#status {
+  width: min(360px, 100%); font-size: .85rem; color: var(--muted);
+  margin-bottom: 1rem; display: flex; justify-content: space-between;
+}
+#status .on { color: var(--ok); }
+#status .off { color: var(--danger); }
+.card {
+  width: min(360px, 100%); background: var(--panel);
+  border-radius: 14px; padding: 1rem; margin-bottom: 1rem;
+}
+.row { display: flex; gap: .5rem; margin-bottom: .5rem; }
+.row:last-child { margin-bottom: 0; }
+button {
+  flex: 1; border: 0; border-radius: 10px;
+  background: var(--btn); color: var(--text);
+  padding: .85rem .5rem; font-size: 1rem; cursor: pointer;
+  min-height: 48px;
+}
+button:active { background: var(--btn-h); }
+button.danger { background: #3a2424; color: #f0c0c0; }
+button.accent { background: #243548; color: #cfe6f8; }
+button.wide { flex: 2; }
+h2 { margin: 0 0 .75rem; font-size: .95rem; font-weight: 600; color: var(--muted); }
+.toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1rem; padding: .25rem 0;
+}
+.toggle label { font-size: .95rem; }
+input[type=checkbox] { width: 1.25rem; height: 1.25rem; }
+.pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; }
+.pad .empty { visibility: hidden; }
+</style>
+</head>
+<body>
+<nav>
+  <a class="active" href="/">Пульт</a>
+  <a href="/message.html">Сообщение</a>
+</nav>
+<div id="status">
+  <span>ADB: <b id="adb">…</b></span>
+  <span>Автофикс: <b id="autofix">…</b></span>
+</div>
+
+<section class="card">
+  <h2>Питание</h2>
+  <div class="row">
+    <button class="accent" type="button" data-act="tv_on">TV ON</button>
+    <button class="danger" type="button" data-act="tv_off">TV OFF</button>
+  </div>
+  <div class="toggle">
+    <label for="af">Автоисправление</label>
+    <input type="checkbox" id="af">
+  </div>
+</section>
+
+<section class="card">
+  <h2>Пульт</h2>
+  <div class="pad">
+    <button type="button" data-key="3">Home</button>
+    <button type="button" data-key="19">▲</button>
+    <button type="button" data-key="82">Menu</button>
+    <button type="button" data-key="21">◀</button>
+    <button type="button" data-key="23">OK</button>
+    <button type="button" data-key="22">▶</button>
+    <button type="button" data-key="4">Back</button>
+    <button type="button" data-key="20">▼</button>
+    <span class="empty"></span>
+  </div>
+  <div class="row" style="margin-top:.5rem">
+    <button type="button" data-key="24">Vol+</button>
+    <button type="button" data-key="164">Mute</button>
+    <button type="button" data-key="25">Vol−</button>
+  </div>
+  <div class="row">
+    <button class="accent" type="button" data-act="hdmi3">HDMI 3</button>
+    <button type="button" data-act="source">Source</button>
+  </div>
+</section>
+
+<script>
+async function api(path, body) {
+  const opts = { method: body === undefined ? 'GET' : 'POST' };
+  if (body !== undefined) {
+    opts.headers = { 'Content-Type': 'application/json' };
+    opts.body = JSON.stringify(body);
+  }
+  const r = await fetch(path, opts);
+  return r.json().catch(() => ({ ok: false }));
+}
+
+function mark(el, on) {
+  el.textContent = on ? 'online' : 'offline';
+  el.className = on ? 'on' : 'off';
+}
+
+async function refresh() {
+  try {
+    const s = await api('/api/status');
+    mark(document.getElementById('adb'), !!s.adb);
+    const af = document.getElementById('autofix');
+    af.textContent = s.autofix ? 'вкл' : 'выкл';
+    af.className = s.autofix ? 'on' : 'off';
+    document.getElementById('af').checked = !!s.autofix;
+  } catch (_) {}
+}
+
+document.getElementById('af').addEventListener('change', async (e) => {
+  await api('/api/autofix', { enabled: e.target.checked });
+  refresh();
+});
+
+document.querySelectorAll('[data-key]').forEach((btn) => {
+  btn.addEventListener('click', () => api('/api/key', { code: Number(btn.dataset.key) }));
+});
+document.querySelectorAll('[data-act]').forEach((btn) => {
+  btn.addEventListener('click', () => api('/api/' + btn.dataset.act, {}));
+});
+
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>
