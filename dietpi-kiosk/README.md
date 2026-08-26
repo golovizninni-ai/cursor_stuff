@@ -65,7 +65,7 @@ x0vncserver -display :0 -localhost no -rfbport 5900 \
 
 | Скрипт | Действие |
 |---|---|
-| `/root/tv_on.sh` | WOL (`d4:5e:ec:f5:01:0d` через `eth0`) → ADB → keyevent 224 (wake) |
+| `/root/tv_on.sh` | WOL → ADB wake (224) → HDMI 3 (245) |
 | `/root/tv_off.sh` | ADB → shutdown broadcast или keyevent 223 (sleep) |
 
 Требования на NUC: `etherwake`, `adb` (ставятся через `install.sh`). На ТВ: сеть ADB `192.168.0.2:5555`.

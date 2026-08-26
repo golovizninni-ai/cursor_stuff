@@ -14,3 +14,7 @@ sleep 1
 
 # Посылаем команду пробуждения экрана (KEYCODE_WAKEUP)
 adb shell input keyevent 224
+sleep 1
+
+# Переключаем вход на HDMI 3 (KEYCODE_TV_INPUT_HDMI_3)
+adb shell input keyevent 245
