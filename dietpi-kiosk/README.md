@@ -108,12 +108,16 @@ ls -l /dev/lirc*
 Проверка:
 
 ```bash
-/root/tv_on.sh          # soft, если ТВ уже в сети
-/root/tv_ir_power.sh    # только ИК Power
-/root/tv_off.sh         # усыпить вручную
-/root/tv_message.sh "Текст на весь экран"
-TITLE="Алерт" DURATION_SEC=30 /root/tv_message.sh Проверка
+/root/tv_message.sh
+# Текст для ТВ: ...
+# Сколько секунд показывать (0 = без таймера): 30
+
+# или сразу:
+/root/tv_message.sh "Текст" 30
+TITLE="Алерт" /root/tv_message.sh "Важно" 0
 ```
+
+После N>0 секунд скрипт переключает ТВ обратно на **HDMI 3**. При `0` висит без таймера (Ctrl+C).
 
 MAC, IP ADB и интерфейс `eth0` правятся в `tv_on.sh` / `tv_off.sh` (`TV_ADB`, `TV_MAC`, `TV_IFACE`, `ADB_WAIT_SEC`).
 
