@@ -65,10 +65,29 @@ x0vncserver -display :0 -localhost no -rfbport 5900 \
 
 | Скрипт | Действие |
 |---|---|
-| `/root/tv_on.sh` | WOL → ADB wake (224) → HDMI 3 (245) |
+| `/root/tv_on.sh` | WOL → ADB wake → **HDMI 3** (Xiaomi) |
 | `/root/tv_off.sh` | ADB → shutdown broadcast или keyevent 223 (sleep) |
 
 Требования на NUC: `etherwake`, `adb` (ставятся через `install.sh`). На ТВ: сеть ADB `192.168.0.2:5555`.
+
+### HDMI 3 на Xiaomi
+
+В `tv_on.sh` пробуются по очереди:
+
+1. `com.xiaomi.mitv.tvplayer.ExternalSourceActivity --ei input 25` (HDMI1=23, HDMI2=24, HDMI3=25)
+2. DroidLogic passthrough `Hdmi3InputService/HW7`
+3. `keyevent 245` (запасной)
+
+Если не переключает — узнать правильный `input` / URI на ТВ:
+
+```bash
+adb connect 192.168.0.2:5555
+adb shell dumpsys tv_input
+# вручную переключите на HDMI3 пультом, затем:
+adb logcat -d | grep -iE 'ExternalSource|passthrough|HDMI|newSource'
+```
+
+Поправьте `XIAOMI_HDMI3_INPUT` или URI в `/root/tv_on.sh`.
 
 Проверка:
 
