@@ -1,88 +1,49 @@
 #!/bin/bash
-# Send IR Power via 3.5mm jack (ALSA).
+# Send IR Power to Xiaomi TV via USB IR blaster.
 # Target: /root/tv_ir_power.sh
 #
-# IMPORTANT (this NUC / ALC255 Analog hw:0,0):
-#   Hardware max sample rate is 48000 Hz. Nyquist = 24 kHz.
-#   Classic IR needs a ~36–38 kHz optical carrier, which CANNOT be
-#   reproduced on this headphone jack. Boosting volume does not help.
-#   Use a USB IR blaster or a smart plug for cold power-on.
+# Hooks (first that works):
+#   1) ir-ctl --send /root/ir/xiaomi_power.ir   (/dev/lirc*)
+#   2) irsend xiaomi KEY_POWER                  (LIRC)
+#
+# Capture code after plugging USB IR RX/TX:
+#   /root/ir/capture-xiaomi-power.sh
 
 set -euo pipefail
 
 IR_DIR="${IR_DIR:-/root/ir}"
-WAV_FILE="${IR_DIR}/xiaomi_power.wav"
-WAV_36="${IR_DIR}/xiaomi_power_36k.wav"
-WAV_38="${IR_DIR}/xiaomi_power_38k.wav"
-IR_ALSA_DEVICE="${IR_ALSA_DEVICE:-plughw:0,0}"
-REPEATS="${IR_REPEATS:-4}"
+RAW_FILE="${IR_DIR}/xiaomi_power.ir"
+LIRC_REMOTE="${LIRC_REMOTE:-xiaomi}"
+LIRC_KEY="${LIRC_KEY:-KEY_POWER}"
 
-mkdir -p "$IR_DIR"
-GEN="${IR_DIR}/generate-xiaomi-power-wav.py"
+sent=0
 
-if [ -f "$GEN" ] && { [ ! -f "$WAV_38" ] || [ "${IR_REGEN:-0}" = "1" ]; }; then
-  python3 "$GEN" "$WAV_38" 38000
-  python3 "$GEN" "$WAV_36" 36000
-  cp -f "$WAV_38" "$WAV_FILE"
-fi
-
-if [ ! -f "$WAV_FILE" ]; then
-  echo "ERROR: missing $WAV_FILE" >&2
-  exit 1
-fi
-
-command -v aplay >/dev/null 2>&1 || {
-  echo "ERROR: aplay not found" >&2
-  exit 1
-}
-
-# Warn once about hardware limit
-echo "WARN: ALC255 Analog is capped at 48 kHz — 38 kHz IR carrier cannot pass this jack." >&2
-echo "WARN: Blast is experimental; expect no TV response. Prefer USB IR or smart plug." >&2
-
-amixer -c 0 sset Master unmute 100% 2>/dev/null || true
-
-ASOUND="/root/.asoundrc"
-if [ ! -f "$ASOUND" ] || ! grep -q 'pcm.irboost' "$ASOUND" 2>/dev/null; then
-  cat > "$ASOUND" << 'EOF'
-pcm.irboost {
-  type softvol
-  slave.pcm "plughw:0,0"
-  control {
-    name "IRBoost"
-    card 0
-  }
-  min_dB -10.0
-  max_dB 20.0
-  resolution 100
-}
-EOF
-fi
-
-PLAY_DEV="$IR_ALSA_DEVICE"
-# Open once to register softvol, then max boost
-aplay -D irboost -q -d 1 /dev/zero 2>/dev/null || true
-if amixer -c 0 sget IRBoost >/dev/null 2>&1; then
-  amixer -c 0 sset IRBoost 100% >/dev/null
-  PLAY_DEV="irboost"
-  echo "Using softvol IRBoost (~+20 dB) on $IR_ALSA_DEVICE"
-fi
-
-blast() {
-  local wav="$1"
-  local label="$2"
-  [ -f "$wav" ] || return 0
-  echo "IR blast $label -> $PLAY_DEV"
-  local i=0
-  while [ "$i" -lt "$REPEATS" ]; do
-    aplay -D "$PLAY_DEV" -q "$wav" 2>/dev/null || aplay -D "$IR_ALSA_DEVICE" -q "$wav"
-    i=$((i + 1))
-    [ "$i" -lt "$REPEATS" ] && sleep 0.25
+if command -v ir-ctl >/dev/null 2>&1 && [ -f "$RAW_FILE" ]; then
+  for dev in /dev/lirc0 /dev/lirc1; do
+    [ -c "$dev" ] || continue
+    if ir-ctl -d "$dev" --send="$RAW_FILE"; then
+      echo "IR Power sent via ir-ctl $dev ($RAW_FILE)"
+      sent=1
+      sleep 0.5
+      ir-ctl -d "$dev" --send="$RAW_FILE" || true
+      break
+    fi
   done
-}
+fi
 
-blast "${WAV_38:-$WAV_FILE}" "38 kHz (will be downsampled to 48 kHz by HW)"
-blast "${WAV_36:-$WAV_FILE}" "36 kHz (will be downsampled to 48 kHz by HW)"
+if [ "$sent" -eq 0 ] && command -v irsend >/dev/null 2>&1; then
+  if irsend SEND_ONCE "$LIRC_REMOTE" "$LIRC_KEY" 2>/dev/null; then
+    echo "IR Power sent via irsend $LIRC_REMOTE $LIRC_KEY"
+    sent=1
+    sleep 0.5
+    irsend SEND_ONCE "$LIRC_REMOTE" "$LIRC_KEY" 2>/dev/null || true
+  fi
+fi
 
-echo "IR jack blast finished (signal boosted, but carrier likely destroyed by 48 kHz DAC)."
+if [ "$sent" -eq 0 ]; then
+  echo "WARN: USB IR not ready — need /dev/lirc* + $RAW_FILE (or LIRC KEY_POWER)" >&2
+  echo "WARN: plug USB IR blaster, then: /root/ir/capture-xiaomi-power.sh" >&2
+  exit 1
+fi
+
 exit 0

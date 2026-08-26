@@ -1,10 +1,10 @@
 #!/bin/bash
 # Capture Xiaomi TV KEY_POWER into /root/ir/xiaomi_power.ir
-# Requires USB IR receiver (or transceiver) exposing /dev/lirc*
+# Requires USB IR receiver/transceiver (/dev/lirc*)
 #
 # Usage (on NUC, as root):
 #   /root/ir/capture-xiaomi-power.sh
-# Point the original Xiaomi remote at the IR receiver and press Power once.
+# Point the original Xiaomi remote at the USB IR receiver and press Power once.
 
 set -euo pipefail
 
@@ -26,14 +26,12 @@ for d in /dev/lirc0 /dev/lirc1; do
 done
 
 if [ -z "$DEV" ]; then
-  echo "No /dev/lirc* found. Plug in a USB IR receiver/blaster and retry."
-  echo "Audio-jack blasters do not create /dev/lirc* — capture needs a real IR RX."
+  echo "No /dev/lirc* found. Plug in a USB IR blaster/receiver and retry."
   exit 1
 fi
 
 echo "Using $DEV"
 echo "Press POWER on the Xiaomi remote once (within 15s)..."
-# mode2-style one-shot receive into pulse file
 timeout 15 ir-ctl -d "$DEV" --receive="$OUT" --mode2 || true
 
 if [ ! -s "$OUT" ]; then

@@ -3,7 +3,7 @@
 # Target: /root/tv_on.sh
 #
 # Soft path (ADB already up): wake + HDMI 3
-# Cold path: WOL + IR Power + wait ADB + wake + HDMI 3
+# Cold path: WOL + USB IR Power (/root/tv_ir_power.sh) + wait ADB + wake + HDMI 3
 #
 # WOL/ADB alone cannot cold-boot a fully powered-off TV.
 
@@ -57,7 +57,7 @@ if adb_online; then
 fi
 
 # --- cold path ---
-echo "Cold path: ADB down — trying WOL + IR Power"
+echo "Cold path: ADB down — trying WOL + USB IR Power"
 etherwake -i "$TV_IFACE" "$TV_MAC" || true
 sleep 2
 

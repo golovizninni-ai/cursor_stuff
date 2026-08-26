@@ -2,7 +2,7 @@
 
 Кастомизации Intel NUC у ТВ: Chromium в **4K (3840×2160@30)**, три дашборда Grafana/Zabbix, авторотация вкладок, ночной F5-refresh, без курсора.
 
-Перед стартом киоска вызывается **`/root/tv_on.sh`**: soft wake (ADB) или cold path (WOL + **ИК Power через 3.5mm jack** + ожидание ADB) → HDMI 3.
+Перед стартом киоска вызывается **`/root/tv_on.sh`**: soft wake (ADB) или cold path (WOL + **USB IR Power** + ожидание ADB) → HDMI 3.
 
 ## Дашборды
 
@@ -20,9 +20,10 @@
 | `kiosk-session.sh` | `/usr/local/bin/kiosk-session.sh` |
 | `refresh-dashboards.sh` | `/usr/local/sbin/refresh-dashboards.sh` |
 | `tv_on.sh` | `/root/tv_on.sh` |
-| `tv_ir_power.sh` | `/root/tv_ir_power.sh` |
+| `tv_ir_power.sh` | `/root/tv_ir_power.sh` (USB IR hook) |
 | `tv_off.sh` | `/root/tv_off.sh` |
-| `ir/*` | `/root/ir/` (capture + IR codes) |
+| `test-ir-cycle.sh` | `/root/test-ir-cycle.sh` |
+| `ir/*` | `/root/ir/` (capture + USB IR codes) |
 | `install.sh` | запускается один раз на NUC |
 
 ## Установка на DietPi
@@ -67,33 +68,32 @@ x0vncserver -display :0 -localhost no -rfbport 5900 \
 
 | Скрипт | Действие |
 |---|---|
-| `/root/tv_on.sh` | Soft: ADB wake → HDMI 3. Cold: WOL + **jack IR Power** → wait ADB → wake → HDMI 3 |
-| `/root/tv_ir_power.sh` | ИК Power через **ALSA `plughw:0,0`** (3.5mm jack) |
-| `/root/tv_off.sh` | ADB → shutdown broadcast или keyevent 223 (sleep) |
-| `/root/ir/generate-xiaomi-power-wav.py` | Генерация `/root/ir/xiaomi_power.wav` |
+| `/root/tv_on.sh` | Soft: ADB wake → HDMI 3. Cold: WOL + **USB IR Power** → wait ADB → wake → HDMI 3 |
+| `/root/tv_ir_power.sh` | ИК Power через **USB** (`ir-ctl` / `irsend`) |
+| `/root/tv_off.sh` | ADB sleep/shutdown; `IR_POWER=1` — ещё и USB IR toggle |
+| `/root/ir/capture-xiaomi-power.sh` | Снять `xiaomi_power.ir` с пульта |
 
-Требования на NUC: `etherwake`, `adb`, `alsa-utils`, `python3`. На ТВ: сеть ADB `192.168.0.2:5555`.
+Требования на NUC: `etherwake`, `adb`, `v4l-utils`. На ТВ: сеть ADB `192.168.0.2:5555`.
 
 ### Soft vs cold
 
 | Состояние ТВ | Что работает |
 |---|---|
 | **Standby / sleep** (Android жив, сеть есть) | WOL + ADB — soft path |
-| **Cold off** (моргнуло 220В) | **ИК Power с jack** + ожидание ADB. Без джек-бластера cold не поднимется |
+| **Cold off** (моргнуло 220В) | **USB IR Power** + ожидание ADB (пока blaster не куплен — только пульт / розетка) |
 
-### Холодный старт: только 3.5mm jack
+### Холодный старт: USB IR
 
-USB IR **не используется**. Передатчик с джеком → наушники NUC (ALC255), LED в ИК-окно ТВ.
+Аудио-джек **не используется**. После покупки USB IR:
 
 ```bash
-# сгенерировать WAV (делает install.sh)
-python3 /root/ir/generate-xiaomi-power-wav.py /root/ir/xiaomi_power.wav
-
-# тест Power
+ls -l /dev/lirc*
+/root/ir/capture-xiaomi-power.sh   # Power на родном пульте
 /root/tv_ir_power.sh
+/root/test-ir-cycle.sh             # строгий тест без WOL
 ```
 
-Подробности: [`ir/README.md`](ir/README.md). Если WAV-протокол не совпадёт с вашей моделью Xiaomi — правьте D/F в генераторе или ставьте умную розетку.
+Подробности: [`ir/README.md`](ir/README.md).
 
 ### HDMI 3 на Xiaomi (MediaTek)
 

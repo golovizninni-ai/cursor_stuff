@@ -1,31 +1,33 @@
-# IR через 3.5mm jack на этом NUC
+# USB IR для cold power-on Xiaomi
 
-## Железо NUC (проверено)
+Аудио-джек на этом NUC **не используется** (ALC255 Analog max 48 kHz — несущую 38 kHz не пропускает).
 
-- Кодек: **ALC255 Analog** `hw:0,0`
-- Headphone Jack: **on**
-- Допустимые rate аналога: **44100–48000 Hz только**
-- Nyquist ≈ **24 kHz**
+## После покупки USB IR
 
-Классический ИК-приёмник ТВ ждёт оптическую несущую **~36–38 kHz**.  
-Её **нельзя** честно выдать с этого jack: `plughw` ресемплит WAV 192 kHz → 48 kHz и **убивает несущую**. Громкость / softvol / стерео это не лечат.
+1. Вставить USB IR blaster (лучше RX+TX) в NUC.  
+2. Проверить: `ls -l /dev/lirc*`  
+3. Снять Power с родного пульта:
 
-Итог эксперимента с усилением:
+```bash
+apt-get install -y v4l-utils
+/root/ir/capture-xiaomi-power.sh
+# нажать Power на пульте Xiaomi один раз
+```
 
-- full-scale stereo WAV, 36+38 kHz, IRBoost ≈ +20 dB — залито и проигрывается;
-- ТВ по ADB после блэста **не гаснет** → jack IR Power на этой связке **не работает**.
+4. Проверка:
 
-## Что делать для cold boot
+```bash
+/root/tv_ir_power.sh
+/root/test-ir-cycle.sh   # ADB off -> USB IR on -> poll ADB (без WOL)
+```
 
-1. **USB IR-blaster** (`/dev/lirc0` + `ir-ctl`) — предпочтительно  
-2. **Умная розетка** / реле на питании ТВ  
-3. Soft wake как сейчас: **WOL + ADB** (только standby, не cold)
+## Хуки в скриптах
 
-## Файлы (оставлены для эксперимента)
-
-| Path | Purpose |
+| Script | USB IR hook |
 |---|---|
-| `/root/ir/generate-xiaomi-power-wav.py` | генератор WAV |
-| `/root/ir/xiaomi_power_38k.wav` | boosted stereo |
-| `/root/tv_ir_power.sh` | aplay + softvol (с WARN про 48 kHz) |
-| `/root/test-ir-cycle.sh` | строгий тест без WOL |
+| `/root/tv_ir_power.sh` | `ir-ctl --send /root/ir/xiaomi_power.ir` или `irsend` |
+| `/root/tv_on.sh` | cold path вызывает `tv_ir_power.sh` перед wait ADB |
+| `/root/tv_off.sh` | `IR_POWER=1` — доп. IR toggle |
+| `/root/ir/capture-xiaomi-power.sh` | запись `xiaomi_power.ir` |
+
+Пока `/dev/lirc*` нет — `tv_ir_power.sh` пишет WARN и выходит с кодом 1; soft wake (ADB/WOL) продолжает работать.
