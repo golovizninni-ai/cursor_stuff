@@ -1,0 +1,15 @@
+# Example raw IR file for ir-ctl --send
+# Replace this file with a real capture:
+#   /root/ir/capture-xiaomi-power.sh
+#
+# Format is mode2 / pulse space durations in microseconds, e.g.:
+#   pulse 9000
+#   space 4500
+#   pulse 560
+#   space 560
+#   ...
+#
+# Copy a successful capture to:
+#   /root/ir/xiaomi_power.ir
+#
+# Do not use this example for transmission — it is documentation only.

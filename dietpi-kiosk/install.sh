@@ -7,7 +7,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 apt-get update
-apt-get install -y xdotool unclutter tigervnc-scraping-server etherwake android-tools-adb
+apt-get install -y xdotool unclutter tigervnc-scraping-server etherwake android-tools-adb v4l-utils
 
 install -m 755 "$SCRIPT_DIR/kiosk-session.sh" /usr/local/bin/kiosk-session.sh
 install -m 755 "$SCRIPT_DIR/chromium-autostart.sh" \
@@ -15,6 +15,12 @@ install -m 755 "$SCRIPT_DIR/chromium-autostart.sh" \
 install -m 755 "$SCRIPT_DIR/refresh-dashboards.sh" /usr/local/sbin/refresh-dashboards.sh
 install -m 755 "$SCRIPT_DIR/tv_on.sh" /root/tv_on.sh
 install -m 755 "$SCRIPT_DIR/tv_off.sh" /root/tv_off.sh
+install -m 755 "$SCRIPT_DIR/tv_ir_power.sh" /root/tv_ir_power.sh
+
+mkdir -p /root/ir
+install -m 755 "$SCRIPT_DIR/ir/capture-xiaomi-power.sh" /root/ir/capture-xiaomi-power.sh
+install -m 644 "$SCRIPT_DIR/ir/README.md" /root/ir/README.md
+install -m 644 "$SCRIPT_DIR/ir/xiaomi_power.ir.example" /root/ir/xiaomi_power.ir.example
 
 # Midnight refresh: F5 on active tab every 30s for 3 minutes
 CRON_LINE='0 0 * * * /usr/local/sbin/refresh-dashboards.sh >>/var/log/refresh-dashboards.log 2>&1'
@@ -43,4 +49,5 @@ systemctl disable --now kiosk-rotate.service 2>/dev/null || true
 systemctl disable --now kiosk-vnc.service 2>/dev/null || true
 
 echo "Installed. Reboot to start kiosk: reboot"
+echo "Cold TV power: plug USB IR blaster, run /root/ir/capture-xiaomi-power.sh (see /root/ir/README.md)"
 echo "VNC: host=<NUC-IP> port=5900 (MobaXterm: host and port in separate fields)"

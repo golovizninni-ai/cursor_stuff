@@ -2,7 +2,7 @@
 
 Кастомизации Intel NUC у ТВ: Chromium в **4K (3840×2160@30)**, три дашборда Grafana/Zabbix, авторотация вкладок, ночной F5-refresh, без курсора.
 
-Перед стартом киоска вызывается **`/root/tv_on.sh`**: WOL на MAC ТВ + ADB wake (`192.168.0.2:5555`).
+Перед стартом киоска вызывается **`/root/tv_on.sh`**: soft wake (ADB) или cold path (WOL + IR Power + ожидание ADB) → HDMI 3.
 
 ## Дашборды
 
@@ -20,7 +20,9 @@
 | `kiosk-session.sh` | `/usr/local/bin/kiosk-session.sh` |
 | `refresh-dashboards.sh` | `/usr/local/sbin/refresh-dashboards.sh` |
 | `tv_on.sh` | `/root/tv_on.sh` |
+| `tv_ir_power.sh` | `/root/tv_ir_power.sh` |
 | `tv_off.sh` | `/root/tv_off.sh` |
+| `ir/*` | `/root/ir/` (capture + IR codes) |
 | `install.sh` | запускается один раз на NUC |
 
 ## Установка на DietPi
@@ -65,10 +67,33 @@ x0vncserver -display :0 -localhost no -rfbport 5900 \
 
 | Скрипт | Действие |
 |---|---|
-| `/root/tv_on.sh` | WOL → ADB wake → попап источников → **tap HDMI 3** |
+| `/root/tv_on.sh` | Soft: ADB wake → HDMI 3. Cold: WOL + IR Power → wait ADB → wake → HDMI 3 |
+| `/root/tv_ir_power.sh` | ИК Power (ir-ctl / irsend / experimental jack WAV) |
 | `/root/tv_off.sh` | ADB → shutdown broadcast или keyevent 223 (sleep) |
+| `/root/ir/capture-xiaomi-power.sh` | Снять код Power с родного пульта на USB IR RX |
 
-Требования на NUC: `etherwake`, `adb` (ставятся через `install.sh`). На ТВ: сеть ADB `192.168.0.2:5555`.
+Требования на NUC: `etherwake`, `adb`, `v4l-utils` (ставятся через `install.sh`). На ТВ: сеть ADB `192.168.0.2:5555`.
+
+### Soft vs cold
+
+| Состояние ТВ | Что работает |
+|---|---|
+| **Standby / sleep** (Android жив, сеть есть) | WOL + ADB — текущий soft path |
+| **Cold off** (моргнуло 220В, ТВ полностью мёртв) | Нужен **ИК Power** (или умная розетка). WOL/ADB сами не поднимут |
+
+После возврата питания Xiaomi обычно ждёт ИК Power с пульта. Пока на NUC нет USB IR (`/dev/lirc*` пуст) — cold path логирует WARN и ждёт ADB до таймаута.
+
+### Холодный старт: ИК
+
+На этом NUC есть только **ALC255** jack (эксперимент) и **нет** USB IR. Для киоска 24/7 берите USB IR-blaster.
+
+1. Вставьте USB IR (лучше transceiver RX+TX).  
+2. `apt-get install -y v4l-utils` (уже в `install.sh`).  
+3. `/root/ir/capture-xiaomi-power.sh` — нажмите Power на родном пульте.  
+4. Появится `/root/ir/xiaomi_power.ir`.  
+5. `/root/tv_ir_power.sh` или полный `/root/tv_on.sh`.
+
+Jack 3.5mm: положите обученный `xiaomi_power.wav` в `/root/ir/` — `tv_ir_power.sh` попробует `aplay` (ненадёжно). Подробности: [`ir/README.md`](ir/README.md).
 
 ### HDMI 3 на Xiaomi (MediaTek)
 
@@ -82,11 +107,12 @@ x0vncserver -display :0 -localhost no -rfbport 5900 \
 Проверка:
 
 ```bash
-/root/tv_on.sh
-/root/tv_off.sh   # усыпить вручную
+/root/tv_on.sh          # soft, если ТВ уже в сети
+/root/tv_ir_power.sh    # только ИК Power
+/root/tv_off.sh         # усыпить вручную
 ```
 
-MAC, IP ADB и интерфейс `eth0` правятся в `tv_on.sh` / `tv_off.sh`.
+MAC, IP ADB и интерфейс `eth0` правятся в `tv_on.sh` / `tv_off.sh` (`TV_ADB`, `TV_MAC`, `TV_IFACE`, `ADB_WAIT_SEC`).
 
 ## Ночной refresh дашбордов
 
