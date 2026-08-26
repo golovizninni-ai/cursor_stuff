@@ -275,18 +275,20 @@ def save_dashboards(cfg: dict) -> None:
 
 
 def restart_chromium() -> None:
-    # DietPi: /usr/bin/chromium is a wrapper; real argv is /usr/lib/chromium/chromium
-    for pattern in (
-        "/usr/lib/chromium/chromium",
-        "/usr/bin/chromium",
-    ):
-        subprocess.run(
-            ["pkill", "-f", pattern],
-            capture_output=True,
-            check=False,
-        )
+    # DietPi: wrapper is /usr/bin/chromium, live process is /usr/lib/chromium/chromium.
+    # Anchor patterns so we do not kill unrelated shells that mention the path in argv.
     subprocess.run(
-        ["killall", "-q", "chromium"],
+        ["killall", "-TERM", "chromium"],
+        capture_output=True,
+        check=False,
+    )
+    subprocess.run(
+        ["pkill", "-TERM", "-f", r"^/usr/lib/chromium/chromium( |$)"],
+        capture_output=True,
+        check=False,
+    )
+    subprocess.run(
+        ["pkill", "-TERM", "-f", r"^/usr/bin/chromium( |$)"],
         capture_output=True,
         check=False,
     )
