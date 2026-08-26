@@ -10,7 +10,9 @@
 2. Grafana MaxPatrol обзор (kiosk): `https://alfa-soc.vls.lan/d/mp-overview/maxpatrol-e28094-obzor?...&kiosk`
 3. Zabbix: `https://zabbix-ib.vls.lan/`
 
-Интервал ротации: **45 секунд**. Вывод: **HDMI-1, 3840×2160@30** через `xrandr`.
+Интервал ротации: из `/etc/kiosk/dashboards.json` (по умолчанию **45 с**). Вывод: **HDMI-1, 3840×2160@30** через `xrandr`.
+
+Список URL и ротация правятся во вкладке **Дашборды** веб-панели (или вручную в JSON).
 
 ## Файлы
 
@@ -18,6 +20,8 @@
 |---|---|
 | `chromium-autostart.sh` | `/var/lib/dietpi/dietpi-software/installed/chromium-autostart.sh` |
 | `kiosk-session.sh` | `/usr/local/bin/kiosk-session.sh` |
+| `kiosk-rotate.sh` | `/usr/local/sbin/kiosk-rotate.sh` |
+| `dashboards.json` | `/etc/kiosk/dashboards.json` |
 | `refresh-dashboards.sh` | `/usr/local/sbin/refresh-dashboards.sh` |
 | `tv_on.sh` | `/root/tv_on.sh` |
 | `tv_ir_power.sh` | `/root/tv_ir_power.sh` (USB IR hook) |
@@ -87,7 +91,8 @@ x0vncserver -display :0 -localhost no -rfbport 5900 \
 ### Веб-панель
 
 `https://ozii-dash.vls.lan/` — пульт (PWA: установка через значок в Chrome).  
-`https://ozii-dash.vls.lan/message.html` — плашка/текст/секунды → `tv_message.sh`, кнопка «Снять».
+`https://ozii-dash.vls.lan/message.html` — плашка/текст/секунды → `tv_message.sh`.  
+`https://ozii-dash.vls.lan/dashboards.html` — вкладки ←/→, авторотация, URL, F5 / цикл 30с×3м, перезапуск киоска.
 
 DNS: `ozii-dash.vls.lan` → `10.10.6.16`. TLS: wildcard `*.vls.lan` в `/etc/tv-panel/cert.pem` + `key.pem` (не в git).
 
@@ -167,7 +172,7 @@ MAC, IP ADB и интерфейс `eth0` правятся в `tv_on.sh` / `tv_of
 
 - Разрешение: `SOFTWARE_CHROMIUM_RES_X/Y` в `/boot/dietpi.txt` → `3840` / `2160`; выход HDMI: `xrandr --output HDMI-1 ...`
 - Имя выхода HDMI (`HDMI-1`) проверьте: `xrandr | grep connected`
-- Смена интервала вкладок: `sleep 45` в `kiosk-session.sh`
+- Смена интервала вкладок: `rotate_sec` в `/etc/kiosk/dashboards.json` или вкладка Дашборды
 - Самоподписанные сертификаты `.vls.lan`: флаги `--ignore-certificate-errors --allow-insecure-localhost`
 - Плашка «Restore pages?»: сброс `Preferences` + `--hide-crash-restore-bubble`
 

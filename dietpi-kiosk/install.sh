@@ -10,6 +10,7 @@ apt-get update
 apt-get install -y xdotool unclutter tigervnc-scraping-server etherwake android-tools-adb v4l-utils python3-pam
 
 install -m 755 "$SCRIPT_DIR/kiosk-session.sh" /usr/local/bin/kiosk-session.sh
+install -m 755 "$SCRIPT_DIR/kiosk-rotate.sh" /usr/local/sbin/kiosk-rotate.sh
 install -m 755 "$SCRIPT_DIR/chromium-autostart.sh" \
   /var/lib/dietpi/dietpi-software/installed/chromium-autostart.sh
 install -m 755 "$SCRIPT_DIR/refresh-dashboards.sh" /usr/local/sbin/refresh-dashboards.sh
@@ -26,11 +27,18 @@ install -m 755 "$SCRIPT_DIR/ir/capture-xiaomi-power.sh" /root/ir/capture-xiaomi-
 install -m 644 "$SCRIPT_DIR/ir/README.md" /root/ir/README.md
 install -m 644 "$SCRIPT_DIR/ir/xiaomi_power.ir.example" /root/ir/xiaomi_power.ir.example
 
+# Dashboard URLs / rotation config (keep existing if present)
+mkdir -p /etc/kiosk
+if [ ! -f /etc/kiosk/dashboards.json ]; then
+  install -m 644 "$SCRIPT_DIR/dashboards.json" /etc/kiosk/dashboards.json
+fi
+
 # Web panel (PWA over HTTPS — use wildcard *.vls.lan certs in /etc/tv-panel/)
 mkdir -p /usr/local/lib/tv_panel/icons /etc/tv-panel
 install -m 644 "$SCRIPT_DIR/tv_panel/server.py" /usr/local/lib/tv_panel/server.py
 install -m 644 "$SCRIPT_DIR/tv_panel/index.html" /usr/local/lib/tv_panel/index.html
 install -m 644 "$SCRIPT_DIR/tv_panel/message.html" /usr/local/lib/tv_panel/message.html
+install -m 644 "$SCRIPT_DIR/tv_panel/dashboards.html" /usr/local/lib/tv_panel/dashboards.html
 install -m 644 "$SCRIPT_DIR/tv_panel/manifest.webmanifest" /usr/local/lib/tv_panel/manifest.webmanifest
 install -m 644 "$SCRIPT_DIR/tv_panel/sw.js" /usr/local/lib/tv_panel/sw.js
 install -m 644 "$SCRIPT_DIR/tv_panel/icons/icon-192.png" /usr/local/lib/tv_panel/icons/icon-192.png

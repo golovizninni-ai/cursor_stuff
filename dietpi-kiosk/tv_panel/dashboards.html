@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#12151a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="TV пульт">
+<title>Дашборды</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<style>
+:root {
+  --bg: #12151a; --panel: #1a1f27; --btn: #2a3140; --btn-h: #3a4458;
+  --text: #e8eef5; --muted: #8b97a8; --accent: #5b9fd4;
+  --danger: #c45c5c; --ok: #5aa879; --w: 320px;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; min-height: 100vh; background: var(--bg); color: var(--text);
+  font-family: "Segoe UI", system-ui, sans-serif;
+  display: flex; flex-direction: column; align-items: center; padding: .5rem;
+}
+nav, .card, #msg { width: min(var(--w), 100%); }
+nav { display: flex; gap: .3rem; margin-bottom: .45rem; flex-wrap: wrap; }
+nav a {
+  flex: 1; min-width: 4.2rem; text-align: center; text-decoration: none;
+  color: var(--muted); padding: .35rem .25rem; border-radius: 6px;
+  background: var(--panel); font-size: .72rem;
+}
+nav a.active { color: var(--text); outline: 1px solid var(--accent); }
+.card {
+  background: var(--panel); border-radius: 10px; padding: .55rem; margin-bottom: .45rem;
+}
+h2 { margin: 0 0 .4rem; font-size: .75rem; font-weight: 600; color: var(--muted); }
+.row { display: flex; gap: .35rem; margin-bottom: .35rem; }
+.row:last-child { margin-bottom: 0; }
+button {
+  flex: 1; border: 0; border-radius: 8px; background: var(--btn); color: var(--text);
+  padding: .4rem .25rem; font-size: .8rem; cursor: pointer; min-height: 34px;
+}
+button:active { background: var(--btn-h); }
+button.accent { background: #243548; color: #cfe6f8; }
+button.danger { background: #3a2424; color: #f0c0c0; }
+button.tiny { flex: 0 0 2rem; min-width: 2rem; padding: .3rem; }
+.toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: .5rem; font-size: .8rem; margin-bottom: .35rem;
+}
+input[type=checkbox] { width: 1rem; height: 1rem; }
+input[type=number], .url-row input[type=url], .url-row input[type=text] {
+  width: 100%; border: 0; border-radius: 6px; background: #12151a; color: var(--text);
+  padding: .4rem .5rem; font: inherit; font-size: .75rem;
+}
+input[type=number] { width: 4.5rem; }
+.url-row { display: flex; gap: .3rem; margin-bottom: .3rem; align-items: center; }
+#msg { font-size: .72rem; color: var(--muted); min-height: 1.1em; margin-top: .2rem; }
+label.sec { font-size: .75rem; color: var(--muted); display: flex; align-items: center; gap: .35rem; }
+</style>
+</head>
+<body>
+<nav>
+  <a href="/">Пульт</a>
+  <a href="/message.html">Сообщение</a>
+  <a class="active" href="/dashboards.html">Дашборды</a>
+</nav>
+
+<section class="card">
+  <h2>Вкладки</h2>
+  <div class="row">
+    <button type="button" id="prev">←</button>
+    <button type="button" id="next">→</button>
+  </div>
+  <div class="toggle">
+    <label for="rot">Авторотация</label>
+    <input type="checkbox" id="rot">
+  </div>
+  <label class="sec">Интервал, с <input type="number" id="sec" min="5" step="1" value="45"></label>
+</section>
+
+<section class="card">
+  <h2>Обновление</h2>
+  <div class="row">
+    <button type="button" id="refresh">Обновить</button>
+    <button type="button" class="accent" id="cycle">Цикл 30с×3м</button>
+  </div>
+  <div class="row">
+    <button type="button" class="danger" id="restart">Перезапустить киоск</button>
+  </div>
+</section>
+
+<section class="card">
+  <h2>URL</h2>
+  <div id="urls"></div>
+  <div class="row">
+    <button type="button" id="add">+</button>
+    <button type="button" class="accent" id="save">Сохранить</button>
+  </div>
+</section>
+<div id="msg"></div>
+
+<script>
+async function api(path, body) {
+  const opts = { method: body === undefined ? 'GET' : 'POST', credentials: 'same-origin' };
+  if (body !== undefined) {
+    opts.headers = { 'Content-Type': 'application/json' };
+    opts.body = JSON.stringify(body);
+  }
+  const r = await fetch(path, opts);
+  return r.json().catch(() => ({ ok: false }));
+}
+
+function say(t) { document.getElementById('msg').textContent = t || ''; }
+
+function renderUrls(list) {
+  const box = document.getElementById('urls');
+  box.innerHTML = '';
+  (list || []).forEach((u, i) => {
+    const row = document.createElement('div');
+    row.className = 'url-row';
+    const inp = document.createElement('input');
+    inp.type = 'url';
+    inp.value = u;
+    inp.placeholder = 'https://…';
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'tiny danger';
+    del.textContent = '×';
+    del.addEventListener('click', () => { row.remove(); });
+    row.appendChild(inp);
+    row.appendChild(del);
+    box.appendChild(row);
+  });
+}
+
+function collectUrls() {
+  return [...document.querySelectorAll('#urls input')].map((i) => i.value.trim()).filter(Boolean);
+}
+
+async function load() {
+  const d = await api('/api/dashboards');
+  if (!d || !d.urls) { say('Не удалось загрузить'); return; }
+  document.getElementById('rot').checked = !!d.rotate_enabled;
+  document.getElementById('sec').value = d.rotate_sec || 45;
+  renderUrls(d.urls);
+}
+
+document.getElementById('add').addEventListener('click', () => {
+  renderUrls([...collectUrls(), '']);
+  const inputs = document.querySelectorAll('#urls input');
+  inputs[inputs.length - 1].focus();
+});
+
+document.getElementById('save').addEventListener('click', async () => {
+  const body = {
+    urls: collectUrls(),
+    rotate_enabled: document.getElementById('rot').checked,
+    rotate_sec: Number(document.getElementById('sec').value || 45),
+  };
+  say('Сохранение…');
+  const r = await api('/api/dashboards', body);
+  say(r.ok ? (r.restarted ? 'Сохранено, киоск перезапущен' : 'Сохранено') : ('Ошибка: ' + (r.error || 'fail')));
+  if (r.ok) load();
+});
+
+document.getElementById('prev').addEventListener('click', async () => {
+  await api('/api/dashboards/prev', {}); say('←');
+});
+document.getElementById('next').addEventListener('click', async () => {
+  await api('/api/dashboards/next', {}); say('→');
+});
+document.getElementById('refresh').addEventListener('click', async () => {
+  await api('/api/dashboards/refresh', {}); say('F5');
+});
+document.getElementById('cycle').addEventListener('click', async () => {
+  const r = await api('/api/dashboards/refresh-cycle', {});
+  say(r.ok ? 'Цикл F5 30с×3м запущен' : ('Ошибка: ' + (r.error || 'busy')));
+});
+document.getElementById('restart').addEventListener('click', async () => {
+  say('Перезапуск…');
+  await api('/api/dashboards/restart', {});
+  say('Киоск перезапускается');
+});
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+if (window.matchMedia('(display-mode: standalone)').matches) {
+  try { window.resizeTo(360, 780); } catch (_) {}
+}
+
+load();
+</script>
+</body>
+</html>

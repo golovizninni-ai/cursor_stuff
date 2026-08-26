@@ -1,0 +1,9 @@
+{
+  "urls": [
+    "https://alfa-soc.vls.lan/?orgId=1&from=now-24h&to=now&timezone=Europe%2FMoscow&var-tab=all&refresh=1m&kiosk/",
+    "https://alfa-soc.vls.lan/d/mp-overview/maxpatrol-e28094-obzor?orgId=1&from=now-24h&to=now&timezone=Europe%2FMoscow&refresh=1m&kiosk",
+    "https://zabbix-ib.vls.lan/"
+  ],
+  "rotate_enabled": true,
+  "rotate_sec": 45
+}

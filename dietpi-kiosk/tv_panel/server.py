@@ -28,6 +28,23 @@ TV_OFF = "/root/tv_off.sh"
 TV_MESSAGE = "/root/tv_message.sh"
 CERT_FILE = Path(os.environ.get("TV_PANEL_CERT", "/etc/tv-panel/cert.pem"))
 KEY_FILE = Path(os.environ.get("TV_PANEL_KEY", "/etc/tv-panel/key.pem"))
+DASHBOARDS_CFG = Path(os.environ.get("KIOSK_DASHBOARDS", "/etc/kiosk/dashboards.json"))
+REFRESH_SCRIPT = "/usr/local/sbin/refresh-dashboards.sh"
+REFRESH_LOCK = Path("/run/kiosk-refresh-cycle.lock")
+X_ENV = {
+    "DISPLAY": os.environ.get("DISPLAY", ":0"),
+    "XAUTHORITY": os.environ.get("XAUTHORITY", "/home/dietpi/.Xauthority"),
+    "PATH": "/usr/sbin:/usr/bin:/bin",
+}
+DEFAULT_DASHBOARDS = {
+    "urls": [
+        "https://alfa-soc.vls.lan/?orgId=1&from=now-24h&to=now&timezone=Europe%2FMoscow&var-tab=all&refresh=1m&kiosk/",
+        "https://alfa-soc.vls.lan/d/mp-overview/maxpatrol-e28094-obzor?orgId=1&from=now-24h&to=now&timezone=Europe%2FMoscow&refresh=1m&kiosk",
+        "https://zabbix-ib.vls.lan/",
+    ],
+    "rotate_enabled": True,
+    "rotate_sec": 45,
+}
 ALLOWED_USERS = {
     u.strip()
     for u in os.environ.get("TV_PANEL_USERS", "root,dietpi").split(",")
@@ -183,6 +200,115 @@ def spawn(cmd: list[str]) -> None:
     )
 
 
+def xdotool_key(*keys: str) -> bool:
+    env = {**os.environ, **X_ENV}
+    try:
+        r = subprocess.run(
+            ["xdotool", "key", "--clearmodifiers", *keys],
+            capture_output=True,
+            text=True,
+            timeout=8,
+            check=False,
+            env=env,
+        )
+        return r.returncode == 0
+    except (subprocess.TimeoutExpired, OSError):
+        return False
+
+
+def load_dashboards() -> dict:
+    if not DASHBOARDS_CFG.is_file():
+        return dict(DEFAULT_DASHBOARDS)
+    try:
+        data = json.loads(DASHBOARDS_CFG.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return dict(DEFAULT_DASHBOARDS)
+    urls = data.get("urls") if isinstance(data, dict) else None
+    if not isinstance(urls, list):
+        urls = list(DEFAULT_DASHBOARDS["urls"])
+    urls = [u.strip() for u in urls if isinstance(u, str) and u.strip()]
+    if not urls:
+        urls = list(DEFAULT_DASHBOARDS["urls"])
+    try:
+        rotate_sec = int(data.get("rotate_sec", 45))
+    except (TypeError, ValueError):
+        rotate_sec = 45
+    if rotate_sec < 5:
+        rotate_sec = 5
+    return {
+        "urls": urls,
+        "rotate_enabled": bool(data.get("rotate_enabled", True)),
+        "rotate_sec": rotate_sec,
+    }
+
+
+def validate_dashboards(data: dict) -> tuple[dict | None, str | None]:
+    urls_raw = data.get("urls")
+    if not isinstance(urls_raw, list) or not urls_raw:
+        return None, "urls"
+    urls: list[str] = []
+    for u in urls_raw:
+        if not isinstance(u, str):
+            return None, "urls"
+        s = u.strip()
+        if not s.startswith(("http://", "https://")):
+            return None, "urls"
+        urls.append(s)
+    try:
+        rotate_sec = int(data.get("rotate_sec", 45))
+    except (TypeError, ValueError):
+        return None, "rotate_sec"
+    if rotate_sec < 5:
+        return None, "rotate_sec"
+    return {
+        "urls": urls,
+        "rotate_enabled": bool(data.get("rotate_enabled", True)),
+        "rotate_sec": rotate_sec,
+    }, None
+
+
+def save_dashboards(cfg: dict) -> None:
+    DASHBOARDS_CFG.parent.mkdir(parents=True, exist_ok=True)
+    tmp = DASHBOARDS_CFG.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    tmp.replace(DASHBOARDS_CFG)
+
+
+def restart_chromium() -> None:
+    subprocess.run(
+        ["pkill", "-f", "/usr/bin/chromium"],
+        capture_output=True,
+        check=False,
+    )
+
+
+def start_refresh_cycle() -> bool:
+    """Run refresh-dashboards.sh once; skip if already running."""
+    REFRESH_LOCK.parent.mkdir(parents=True, exist_ok=True)
+    script = f"""
+set -e
+exec 9>"{REFRESH_LOCK}"
+flock -n 9 || exit 99
+{REFRESH_SCRIPT}
+"""
+    try:
+        proc = subprocess.Popen(
+            ["/bin/bash", "-c", script],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+            env={**os.environ, **X_ENV},
+        )
+    except OSError:
+        return False
+    # If flock failed immediately, process exits 99 quickly — best-effort
+    try:
+        code = proc.wait(timeout=0.3)
+        return code != 99
+    except subprocess.TimeoutExpired:
+        return True
+
+
 def read_json(handler: BaseHTTPRequestHandler) -> dict:
     length = int(handler.headers.get("Content-Length") or 0)
     raw = handler.rfile.read(length) if length else b"{}"
@@ -260,6 +386,8 @@ class Handler(BaseHTTPRequestHandler):
             send_file(self, ROOT / "index.html", "text/html; charset=utf-8")
         elif path == "/message.html":
             send_file(self, ROOT / "message.html", "text/html; charset=utf-8")
+        elif path == "/dashboards.html":
+            send_file(self, ROOT / "dashboards.html", "text/html; charset=utf-8")
         elif path == "/api/status":
             send_json(
                 self,
@@ -269,6 +397,8 @@ class Handler(BaseHTTPRequestHandler):
                     "message_active": message_active(),
                 },
             )
+        elif path == "/api/dashboards":
+            send_json(self, load_dashboards())
         else:
             self.send_error(404)
 
@@ -345,6 +475,33 @@ class Handler(BaseHTTPRequestHandler):
             send_json(self, {"ok": True})
         elif path == "/api/message/stop":
             stop_message()
+            send_json(self, {"ok": True})
+        elif path == "/api/dashboards":
+            cfg, err = validate_dashboards(data)
+            if cfg is None:
+                send_json(self, {"ok": False, "error": err or "invalid"}, 400)
+                return
+            old = load_dashboards()
+            save_dashboards(cfg)
+            restarted = old.get("urls") != cfg.get("urls")
+            if restarted:
+                restart_chromium()
+            send_json(self, {"ok": True, "restarted": restarted, **cfg})
+        elif path == "/api/dashboards/prev":
+            send_json(self, {"ok": xdotool_key("ctrl+Page_Up")})
+        elif path == "/api/dashboards/next":
+            send_json(self, {"ok": xdotool_key("ctrl+Page_Down")})
+        elif path == "/api/dashboards/refresh":
+            send_json(self, {"ok": xdotool_key("F5")})
+        elif path == "/api/dashboards/refresh-cycle":
+            ok = start_refresh_cycle()
+            send_json(
+                self,
+                {"ok": ok, **({} if ok else {"error": "busy"})},
+                200 if ok else 409,
+            )
+        elif path == "/api/dashboards/restart":
+            restart_chromium()
             send_json(self, {"ok": True})
         else:
             self.send_error(404)

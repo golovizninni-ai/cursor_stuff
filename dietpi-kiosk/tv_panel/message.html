@@ -33,12 +33,12 @@ body {
 }
 nav, #status, .card { width: min(var(--w), 100%); }
 nav {
-  display: flex; gap: .4rem; margin-bottom: .45rem;
+  display: flex; gap: .3rem; margin-bottom: .45rem; flex-wrap: wrap;
 }
 nav a {
-  flex: 1; text-align: center; text-decoration: none;
-  color: var(--muted); padding: .35rem; border-radius: 6px;
-  background: var(--panel); font-size: .8rem;
+  flex: 1; min-width: 4.2rem; text-align: center; text-decoration: none;
+  color: var(--muted); padding: .35rem .25rem; border-radius: 6px;
+  background: var(--panel); font-size: .72rem;
 }
 nav a.active { color: var(--text); outline: 1px solid var(--accent); }
 #status {
@@ -79,6 +79,7 @@ button.danger { background: #3a2424; color: #f0c0c0; }
 <nav>
   <a href="/">Пульт</a>
   <a class="active" href="/message.html">Сообщение</a>
+  <a href="/dashboards.html">Дашборды</a>
 </nav>
 <div id="status">
   <span>ADB: <b id="adb">…</b></span>
