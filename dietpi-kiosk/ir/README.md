@@ -1,45 +1,31 @@
-# IR Power через 3.5mm jack (без USB)
+# IR через 3.5mm jack на этом NUC
 
-На NUC: **ALC255 Analog** (`plughw:0,0`). USB IR не используется.
+## Железо NUC (проверено)
 
-## Железо
+- Кодек: **ALC255 Analog** `hw:0,0`
+- Headphone Jack: **on**
+- Допустимые rate аналога: **44100–48000 Hz только**
+- Nyquist ≈ **24 kHz**
 
-1. Воткните ИК-передатчик с джеком в **наушники** NUC (не mic).  
-2. Направьте светодиод в ИК-окно Xiaomi (близко, прямо, без стекла под углом).  
-3. Громкость ALSA поднимается скриптом на 100% при отправке.
+Классический ИК-приёмник ТВ ждёт оптическую несущую **~36–38 kHz**.  
+Её **нельзя** честно выдать с этого jack: `plughw` ресемплит WAV 192 kHz → 48 kHz и **убивает несущую**. Громкость / softvol / стерео это не лечат.
 
-## Генерация WAV
+Итог эксперимента с усилением:
 
-Код Power — Xiaomi RC-MM variant (`D=0x3C F=0xCC`), несущая 36 kHz:
+- full-scale stereo WAV, 36+38 kHz, IRBoost ≈ +20 dB — залито и проигрывается;
+- ТВ по ADB после блэста **не гаснет** → jack IR Power на этой связке **не работает**.
 
-```bash
-python3 /root/ir/generate-xiaomi-power-wav.py /root/ir/xiaomi_power.wav
-```
+## Что делать для cold boot
 
-`install.sh` делает это автоматически.
+1. **USB IR-blaster** (`/dev/lirc0` + `ir-ctl`) — предпочтительно  
+2. **Умная розетка** / реле на питании ТВ  
+3. Soft wake как сейчас: **WOL + ADB** (только standby, не cold)
 
-## Проверка
-
-```bash
-# ТВ cold/off, смотрите на экран
-/root/tv_ir_power.sh
-
-# полный cold path
-/root/tv_on.sh
-```
-
-Если не включает:
-
-- проверьте, что джек в **output**, LED смотрит в приёмник;
-- `aplay -l` — должен быть `card 0: PCH ... device 0: ALC255 Analog`;
-- смените устройство: `IR_ALSA_DEVICE=plughw:0,0 /root/tv_ir_power.sh`;
-- протокол у моделей Xiaomi отличается — тогда нужен другой D/F в `generate-xiaomi-power-wav.py` или умная розетка.
-
-## Файлы
+## Файлы (оставлены для эксперимента)
 
 | Path | Purpose |
 |---|---|
-| `/root/ir/xiaomi_power.wav` | ИК Power как звук |
 | `/root/ir/generate-xiaomi-power-wav.py` | генератор WAV |
-| `/root/tv_ir_power.sh` | `aplay` на jack |
-| `/root/tv_on.sh` | cold: WOL + IR jack + wait ADB + HDMI 3 |
+| `/root/ir/xiaomi_power_38k.wav` | boosted stereo |
+| `/root/tv_ir_power.sh` | aplay + softvol (с WARN про 48 kHz) |
+| `/root/test-ir-cycle.sh` | строгий тест без WOL |
