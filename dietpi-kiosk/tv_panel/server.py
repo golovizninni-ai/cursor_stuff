@@ -20,7 +20,7 @@ except ImportError:  # pragma: no cover
 
 ROOT = Path(__file__).resolve().parent
 TV_ADB = os.environ.get("TV_ADB", "192.168.0.2:5555")
-PORT = int(os.environ.get("TV_PANEL_PORT", "8787"))
+PORT = int(os.environ.get("TV_PANEL_PORT", "443"))
 AUTOFIX_FLAG = Path(os.environ.get("AUTOFIX_FLAG", "/root/tv_autofix.enabled"))
 MSG_PID = Path("/tmp/tvmsg-panel.pid")
 TV_ON = "/root/tv_on.sh"

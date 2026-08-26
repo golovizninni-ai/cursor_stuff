@@ -10,7 +10,7 @@ ExecStart=/usr/bin/python3 /usr/local/lib/tv_panel/server.py
 Restart=always
 RestartSec=3
 Environment=TV_ADB=192.168.0.2:5555
-Environment=TV_PANEL_PORT=8787
+Environment=TV_PANEL_PORT=443
 Environment=AUTOFIX_FLAG=/root/tv_autofix.enabled
 Environment=TV_PANEL_USERS=root,dietpi
 Environment=TV_PANEL_PAM_SERVICE=login

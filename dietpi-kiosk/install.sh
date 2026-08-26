@@ -94,6 +94,6 @@ systemctl disable --now kiosk-rotate.service 2>/dev/null || true
 systemctl disable --now kiosk-vnc.service 2>/dev/null || true
 
 echo "Installed. Reboot to start kiosk: reboot"
-echo "TV panel (PWA): https://ozii-dash.vls.lan:8787/  (root/dietpi PAM)"
+echo "TV panel (PWA): https://ozii-dash.vls.lan/  (root/dietpi PAM)"
 echo "Cold TV: plug USB IR, run /root/ir/capture-xiaomi-power.sh, then /root/tv_ir_power.sh"
 echo "VNC: host=<NUC-IP> port=5900 (MobaXterm: host and port in separate fields)"

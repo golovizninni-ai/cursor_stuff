@@ -86,13 +86,13 @@ x0vncserver -display :0 -localhost no -rfbport 5900 \
 
 ### Веб-панель
 
-`https://ozii-dash.vls.lan:8787/` — пульт (PWA: в Chrome — установить / ярлык на рабочий стол).  
-`https://ozii-dash.vls.lan:8787/message.html` — плашка/текст/секунды → `tv_message.sh`, кнопка «Снять».
+`https://ozii-dash.vls.lan/` — пульт (PWA: установка через значок в Chrome).  
+`https://ozii-dash.vls.lan/message.html` — плашка/текст/секунды → `tv_message.sh`, кнопка «Снять».
 
 DNS: `ozii-dash.vls.lan` → `10.10.6.16`. TLS: wildcard `*.vls.lan` в `/etc/tv-panel/cert.pem` + `key.pem` (не в git).
 
-Сервис: `systemctl status tv-panel`. Порт **8787** (HTTPS).  
-**HTTP Basic Auth** через PAM: **`root`** / **`dietpi`**. После логина Chrome покажет установку приложения / кнопку «Установить на рабочий стол».
+Сервис: `systemctl status tv-panel`. Порт **443** (HTTPS).  
+**HTTP Basic Auth** через PAM: **`root`** / **`dietpi`**.
 
 ### Soft vs cold
 

@@ -5,4 +5,4 @@ Place wildcard `*.vls.lan` files here for install.sh:
 - `website.crt` → `/etc/tv-panel/cert.pem`
 - `website.key` → `/etc/tv-panel/key.pem`
 
-Host: `https://ozii-dash.vls.lan:8787/`
+Host: `https://ozii-dash.vls.lan/` (port 443)

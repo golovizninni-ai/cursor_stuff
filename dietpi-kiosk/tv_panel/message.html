@@ -21,6 +21,7 @@
   --accent: #5b9fd4;
   --danger: #c45c5c;
   --ok: #5aa879;
+  --w: 300px;
 }
 * { box-sizing: border-box; }
 body {
@@ -28,50 +29,50 @@ body {
   background: var(--bg); color: var(--text);
   font-family: "Segoe UI", system-ui, sans-serif;
   display: flex; flex-direction: column; align-items: center;
-  padding: 1rem;
+  padding: .5rem;
 }
+nav, #status, .card { width: min(var(--w), 100%); }
 nav {
-  display: flex; gap: .75rem; margin-bottom: 1rem;
-  width: min(420px, 100%);
+  display: flex; gap: .4rem; margin-bottom: .45rem;
 }
 nav a {
   flex: 1; text-align: center; text-decoration: none;
-  color: var(--muted); padding: .55rem; border-radius: 8px;
-  background: var(--panel); font-size: .9rem;
+  color: var(--muted); padding: .35rem; border-radius: 6px;
+  background: var(--panel); font-size: .8rem;
 }
 nav a.active { color: var(--text); outline: 1px solid var(--accent); }
 #status {
-  width: min(420px, 100%); font-size: .85rem; color: var(--muted);
-  margin-bottom: 1rem; display: flex; justify-content: space-between;
+  font-size: .75rem; color: var(--muted);
+  margin-bottom: .45rem; display: flex; justify-content: space-between;
 }
 #status .on { color: var(--ok); }
 #status .off { color: var(--danger); }
 .card {
-  width: min(420px, 100%); background: var(--panel);
-  border-radius: 14px; padding: 1rem;
+  background: var(--panel);
+  border-radius: 10px; padding: .55rem;
 }
 label {
-  display: block; font-size: .85rem; color: var(--muted);
-  margin: .75rem 0 .35rem;
+  display: block; font-size: .75rem; color: var(--muted);
+  margin: .45rem 0 .2rem;
 }
 label:first-of-type { margin-top: 0; }
 input, textarea {
-  width: 100%; border: 0; border-radius: 8px;
+  width: 100%; border: 0; border-radius: 6px;
   background: #12151a; color: var(--text);
-  padding: .7rem .8rem; font: inherit;
+  padding: .45rem .55rem; font: inherit; font-size: .85rem;
 }
-textarea { min-height: 7rem; resize: vertical; }
-.hint { font-size: .75rem; color: var(--muted); margin-top: .25rem; }
-.row { display: flex; gap: .5rem; margin-top: 1rem; }
+textarea { min-height: 4.5rem; resize: vertical; }
+.hint { font-size: .7rem; color: var(--muted); margin-top: .15rem; }
+.row { display: flex; gap: .35rem; margin-top: .55rem; }
 button {
-  flex: 1; border: 0; border-radius: 10px;
+  flex: 1; border: 0; border-radius: 8px;
   background: var(--btn); color: var(--text);
-  padding: .85rem .5rem; font-size: 1rem; cursor: pointer;
-  min-height: 48px;
+  padding: .45rem .3rem; font-size: .85rem; cursor: pointer;
+  min-height: 36px;
 }
 button.accent { background: #243548; color: #cfe6f8; }
 button.danger { background: #3a2424; color: #f0c0c0; }
-#msg { margin-top: .75rem; font-size: .85rem; color: var(--muted); min-height: 1.2em; }
+#msg { margin-top: .45rem; font-size: .75rem; color: var(--muted); min-height: 1.1em; }
 </style>
 </head>
 <body>
@@ -151,6 +152,10 @@ setInterval(refresh, 5000);
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
+if (window.matchMedia('(display-mode: standalone)').matches) {
+  try { window.resizeTo(340, 720); } catch (_) {}
 }
 </script>
 </body>
