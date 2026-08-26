@@ -4,12 +4,14 @@
 #
 # Interactive:
 #   /root/tv_message.sh
-#   → ввод текста
-#   → сколько секунд показывать (0 = без таймера, Ctrl+C чтобы снять)
+#   → плашка сверху (Enter = Сообщение)
+#   → текст
+#   → секунды (0 = без таймера, Ctrl+C чтобы снять)
 #
 # Non-interactive:
 #   /root/tv_message.sh "текст" 30
 #   TITLE="Алерт" /root/tv_message.sh "текст" 0
+#   /root/tv_message.sh "Алерт" "текст" 30
 #
 # After timer (sec > 0): switch TV back to HDMI 3.
 
@@ -54,24 +56,35 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# --- read text ---
+# --- interactive prompts when no args ---
 MSG=""
 DURATION_SEC=""
 
-if [ "$#" -ge 1 ]; then
-  MSG="$1"
-fi
-if [ "$#" -ge 2 ]; then
-  DURATION_SEC="$2"
-fi
-
-if [ -z "$MSG" ]; then
+if [ "$#" -eq 0 ]; then
   if [ -t 0 ]; then
+    echo -n "Плашка сверху (Enter = Сообщение): "
+    IFS= read -r TITLE_IN
+    TITLE_IN="$(printf '%s' "$TITLE_IN" | tr -d '\r')"
+    [ -n "$TITLE_IN" ] && TITLE="$TITLE_IN"
+
     echo -n "Текст для ТВ: "
     IFS= read -r MSG
+
+    echo -n "Сколько секунд показывать (0 = без таймера): "
+    IFS= read -r DURATION_SEC
   else
     MSG="$(cat)"
+    DURATION_SEC=0
   fi
+elif [ "$#" -eq 1 ]; then
+  MSG="$1"
+elif [ "$#" -eq 2 ]; then
+  MSG="$1"
+  DURATION_SEC="$2"
+else
+  TITLE="$1"
+  MSG="$2"
+  DURATION_SEC="$3"
 fi
 
 MSG="$(printf '%s' "$MSG" | tr -d '\r')"
@@ -80,7 +93,6 @@ if [ -z "$MSG" ]; then
   exit 1
 fi
 
-# --- read duration ---
 if [ -z "${DURATION_SEC}" ]; then
   if [ -t 0 ]; then
     echo -n "Сколько секунд показывать (0 = без таймера): "

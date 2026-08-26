@@ -109,11 +109,13 @@ ls -l /dev/lirc*
 
 ```bash
 /root/tv_message.sh
+# Плашка сверху (Enter = Сообщение): Алерт
 # Текст для ТВ: ...
 # Сколько секунд показывать (0 = без таймера): 30
 
 # или сразу:
 /root/tv_message.sh "Текст" 30
+/root/tv_message.sh "Алерт" "Текст" 30
 TITLE="Алерт" /root/tv_message.sh "Важно" 0
 ```
 
