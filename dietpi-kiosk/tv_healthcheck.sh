@@ -1,5 +1,7 @@
 #!/bin/bash
-# Soft ADB healthcheck: WOL + wake + HDMI 3 if ADB was down.
+# Soft ADB healthcheck in work hours:
+# - ADB offline → WOL + wait + wake + HDMI 3
+# - ADB online but screen asleep → wake + HDMI 3
 # Cron: every minute Mon–Fri 08:30–18:30. No logs. No cold IR.
 # Target: /root/tv_healthcheck.sh
 
@@ -27,6 +29,12 @@ adb_online() {
   adb devices 2>/dev/null | grep -qE "^${TV_ADB}[[:space:]]+device$"
 }
 
+# Xiaomi standby: mWakefulness=Asleep/Dozing while ADB often still up
+screen_awake() {
+  adb -s "$TV_ADB" shell dumpsys power 2>/dev/null \
+    | grep -qE 'mWakefulness=Awake'
+}
+
 switch_hdmi3() {
   adb -s "$TV_ADB" shell am start -a com.mitv.tvhome.atv.app.tv.INPUTSOURCE_POPUP >/dev/null 2>&1 || true
   sleep 1
@@ -41,7 +49,12 @@ wake_and_hdmi() {
 
 [ -f "$AUTOFIX_FLAG" ] || exit 0
 in_work_window || exit 0
-adb_online && exit 0
+
+if adb_online; then
+  screen_awake && exit 0
+  wake_and_hdmi
+  exit 0
+fi
 
 etherwake -i "$TV_IFACE" "$TV_MAC" >/dev/null 2>&1 || true
 
