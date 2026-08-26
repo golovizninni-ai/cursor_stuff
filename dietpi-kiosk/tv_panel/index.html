@@ -71,6 +71,16 @@ h2 { margin: 0 0 .4rem; font-size: .75rem; font-weight: 600; color: var(--muted)
 input[type=checkbox] { width: 1rem; height: 1rem; }
 .pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: .35rem; }
 .pad .empty { visibility: hidden; }
+.remote .pad button,
+.remote .row button {
+  aspect-ratio: 1;
+  min-height: 0;
+  height: auto;
+  padding: 0;
+  border-radius: 6px;
+  font-size: .8rem;
+}
+.remote .row { margin-top: .35rem; }
 </style>
 </head>
 <body>
@@ -96,7 +106,7 @@ input[type=checkbox] { width: 1rem; height: 1rem; }
   </div>
 </section>
 
-<section class="card">
+<section class="card remote">
   <h2>Пульт</h2>
   <div class="pad">
     <button type="button" data-key="3">Home</button>
@@ -109,7 +119,7 @@ input[type=checkbox] { width: 1rem; height: 1rem; }
     <button type="button" data-key="20">▼</button>
     <span class="empty"></span>
   </div>
-  <div class="row" style="margin-top:.35rem">
+  <div class="row">
     <button type="button" data-key="24">Vol+</button>
     <button type="button" data-key="164">Mute</button>
     <button type="button" data-key="25">Vol−</button>
