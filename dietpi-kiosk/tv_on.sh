@@ -16,10 +16,23 @@ TV_MAC="${TV_MAC:-d4:5e:ec:f5:01:0d}"
 TV_IFACE="${TV_IFACE:-eth0}"
 ADB_WAIT_SEC="${ADB_WAIT_SEC:-120}"
 ADB_POLL_SEC="${ADB_POLL_SEC:-5}"
+ADB_CMD_TIMEOUT="${ADB_CMD_TIMEOUT:-8}"
+LOCK_FILE="${LOCK_FILE:-/run/tv_on.lock}"
+
+# Avoid stacking hung keyevent/am from cron + panel + healthcheck
+exec 9>"$LOCK_FILE"
+flock -n 9 || {
+  echo "tv_on already running — skip"
+  exit 0
+}
+
+adb_sh() {
+  timeout "$ADB_CMD_TIMEOUT" adb -s "$TV_ADB" shell "$@" >/dev/null 2>&1 || true
+}
 
 adb_online() {
-  adb connect "$TV_ADB" >/dev/null 2>&1 || true
-  adb devices 2>/dev/null | grep -qE "^${TV_ADB}[[:space:]]+device$"
+  timeout 5 adb connect "$TV_ADB" >/dev/null 2>&1 || true
+  timeout 5 adb devices 2>/dev/null | grep -qE "^${TV_ADB}[[:space:]]+device$"
 }
 
 wait_for_adb() {
@@ -31,7 +44,7 @@ wait_for_adb() {
       return 0
     fi
     sleep "$ADB_POLL_SEC"
-    adb connect "$TV_ADB" >/dev/null 2>&1 || true
+    timeout 5 adb connect "$TV_ADB" >/dev/null 2>&1 || true
   done
   echo "ERROR: ADB not ready after ${ADB_WAIT_SEC}s (TV still cold / IR missing?)" >&2
   return 1
@@ -39,14 +52,15 @@ wait_for_adb() {
 
 switch_hdmi3() {
   # Xiaomi MediaTek source picker -> tap HDMI 3 tile
-  adb shell am start -a com.mitv.tvhome.atv.app.tv.INPUTSOURCE_POPUP
+  adb_sh am start -a com.mitv.tvhome.atv.app.tv.INPUTSOURCE_POPUP
   sleep 1
   # UI grid tile "HDMI 3" bounds [480,280][800,540] @ 1920x1080
-  adb shell input tap 640 410
+  adb_sh input tap 640 410
 }
 
 wake_and_hdmi() {
-  adb shell input keyevent 224
+  # keyevent 224 can hang while TV is half-asleep — always timeout
+  adb_sh input keyevent 224
   sleep 2
   switch_hdmi3
 }
