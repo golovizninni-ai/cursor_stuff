@@ -13,7 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 try:
-    import pam as pam_mod
+    import PAM as pam_mod
 except ImportError:  # pragma: no cover
     pam_mod = None
 
@@ -34,13 +34,33 @@ PAM_SERVICE = os.environ.get("TV_PANEL_PAM_SERVICE", "login")
 
 
 def check_linux_user(username: str, password: str) -> bool:
-    if username not in ALLOWED_USERS or not password:
+    """Authenticate against system accounts via Debian python3-pam (import PAM)."""
+    if username not in ALLOWED_USERS or password is None or pam_mod is None:
         return False
-    if pam_mod is None:
-        return False
+
+    def pam_conv(auth, query_list, _user_data):
+        resp = []
+        for _query, qtype in query_list:
+            if qtype == pam_mod.PAM_PROMPT_ECHO_ON:
+                resp.append((username, 0))
+            elif qtype == pam_mod.PAM_PROMPT_ECHO_OFF:
+                resp.append((password, 0))
+            elif qtype in (pam_mod.PAM_ERROR_MSG, pam_mod.PAM_TEXT_INFO):
+                resp.append(("", 0))
+            else:
+                return None
+        return resp
+
     auth = pam_mod.pam()
     try:
-        return bool(auth.authenticate(username, password, service=PAM_SERVICE))
+        auth.start(PAM_SERVICE)
+        auth.set_item(pam_mod.PAM_USER, username)
+        auth.set_item(pam_mod.PAM_CONV, pam_conv)
+        auth.authenticate()
+        auth.acct_mgmt()
+        return True
+    except pam_mod.error:
+        return False
     except Exception:
         return False
 
@@ -291,7 +311,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def main() -> None:
     if pam_mod is None:
-        raise SystemExit("python3-pam required (apt install python3-pam)")
+        raise SystemExit("python3-pam required (apt install python3-pam, import PAM)")
     server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     server.serve_forever()
 
