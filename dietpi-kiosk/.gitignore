@@ -1,6 +1,0 @@
-certs/website.crt
-certs/website.key
-certs/*.pem
-certs/*.key
-certs/*.crt
-!certs/README.md
