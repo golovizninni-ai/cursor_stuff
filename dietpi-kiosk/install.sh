@@ -52,6 +52,18 @@ if [ ! -f /etc/tv-panel/cert.pem ] || [ ! -f /etc/tv-panel/key.pem ]; then
   echo "  (or dietpi-kiosk/certs/website.crt + website.key before install)" >&2
   exit 1
 fi
+
+# Panel-only Linux user: PAM auth for PWA, no shell / sudo
+install -m 644 "$SCRIPT_DIR/pam/tv-panel" /etc/pam.d/tv-panel
+if ! id -u pult >/dev/null 2>&1; then
+  useradd --system --create-home --home-dir /var/lib/pult --shell /usr/sbin/nologin pult
+fi
+if [ -n "${TV_PANEL_PULT_PASSWORD:-}" ]; then
+  echo "pult:${TV_PANEL_PULT_PASSWORD}" | chpasswd
+else
+  echo "NOTE: set panel password with: echo 'pult:SECRET' | chpasswd" >&2
+fi
+
 install -m 644 "$SCRIPT_DIR/tv-panel.service" /etc/systemd/system/tv-panel.service
 systemctl daemon-reload
 systemctl enable --now tv-panel.service
@@ -102,6 +114,6 @@ systemctl disable --now kiosk-rotate.service 2>/dev/null || true
 systemctl disable --now kiosk-vnc.service 2>/dev/null || true
 
 echo "Installed. Reboot to start kiosk: reboot"
-echo "TV panel (PWA): https://ozii-dash.vls.lan/  (root/dietpi PAM)"
+echo "TV panel (PWA): https://ozii-dash.vls.lan/  (user pult, cookie 90d)"
 echo "Cold TV: plug USB IR, run /root/ir/capture-xiaomi-power.sh, then /root/tv_ir_power.sh"
 echo "VNC: host=<NUC-IP> port=5900 (MobaXterm: host and port in separate fields)"

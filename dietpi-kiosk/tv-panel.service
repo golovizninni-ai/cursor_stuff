@@ -12,8 +12,9 @@ RestartSec=3
 Environment=TV_ADB=192.168.0.2:5555
 Environment=TV_PANEL_PORT=443
 Environment=AUTOFIX_FLAG=/root/tv_autofix.enabled
-Environment=TV_PANEL_USERS=root,dietpi
-Environment=TV_PANEL_PAM_SERVICE=login
+Environment=TV_PANEL_USERS=pult
+Environment=TV_PANEL_PAM_SERVICE=tv-panel
+Environment=TV_PANEL_SESSION_MAX_AGE=7776000
 Environment=TV_PANEL_CERT=/etc/tv-panel/cert.pem
 Environment=TV_PANEL_KEY=/etc/tv-panel/key.pem
 

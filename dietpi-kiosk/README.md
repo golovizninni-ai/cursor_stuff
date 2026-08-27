@@ -97,7 +97,8 @@ x0vncserver -display :0 -localhost no -rfbport 5900 \
 DNS: `ozii-dash.vls.lan` → `10.10.6.16`. TLS: wildcard `*.vls.lan` в `/etc/tv-panel/cert.pem` + `key.pem` (не в git).
 
 Сервис: `systemctl status tv-panel`. Порт **443** (HTTPS).  
-**HTTP Basic Auth** через PAM: **`root`** / **`dietpi`**.
+Вход: веб-форма + cookie (**90 дней**), PAM-пользователь **`pult`** (shell `nologin`, без sudo; `/etc/pam.d/tv-panel`).  
+HTTP Basic не используется. `root` / `dietpi` в панели не принимаются.
 
 ### Soft vs cold
 

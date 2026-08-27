@@ -4,11 +4,15 @@
 from __future__ import annotations
 
 import base64
+import hashlib
+import hmac
 import json
 import os
+import secrets
 import signal
 import ssl
 import subprocess
+import time
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -47,10 +51,15 @@ DEFAULT_DASHBOARDS = {
 }
 ALLOWED_USERS = {
     u.strip()
-    for u in os.environ.get("TV_PANEL_USERS", "root,dietpi").split(",")
+    for u in os.environ.get("TV_PANEL_USERS", "pult").split(",")
     if u.strip()
 }
-PAM_SERVICE = os.environ.get("TV_PANEL_PAM_SERVICE", "login")
+PAM_SERVICE = os.environ.get("TV_PANEL_PAM_SERVICE", "tv-panel")
+SESSION_COOKIE = "tv_panel_sess"
+SESSION_MAX_AGE = int(os.environ.get("TV_PANEL_SESSION_MAX_AGE", str(90 * 24 * 3600)))
+SESSION_SECRET_FILE = Path(
+    os.environ.get("TV_PANEL_SESSION_SECRET_FILE", "/etc/tv-panel/session.secret")
+)
 
 # Public paths for PWA install (Chrome needs SW/manifest without Basic challenge loops)
 PUBLIC_PATHS = {
@@ -59,6 +68,85 @@ PUBLIC_PATHS = {
     "/icons/icon-192.png",
     "/icons/icon-512.png",
 }
+
+LOGIN_HTML = """<!DOCTYPE html>
+<html lang="ru"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#12151a">
+<title>TV пульт — вход</title>
+<style>
+body{margin:0;min-height:100vh;background:#12151a;color:#e8eef5;font-family:"Segoe UI",system-ui,sans-serif;
+display:flex;align-items:center;justify-content:center;padding:1rem}
+form{width:min(300px,100%);background:#1a1f27;border-radius:10px;padding:1rem}
+h1{margin:0 0 .75rem;font-size:.95rem;font-weight:600;color:#8b97a8}
+label{display:block;font-size:.75rem;color:#8b97a8;margin:.45rem 0 .2rem}
+input{width:100%;box-sizing:border-box;border:0;border-radius:6px;background:#2a3140;color:#e8eef5;
+padding:.55rem .5rem;font-size:1rem}
+button{width:100%;margin-top:.85rem;border:0;border-radius:6px;background:#243548;color:#cfe6f8;
+padding:.55rem;font-size:.9rem;cursor:pointer}
+.err{color:#f0c0c0;font-size:.75rem;margin:0 0 .5rem;min-height:1em}
+</style></head><body>
+<form method="post" action="/login" autocomplete="username">
+<h1>Вход в TV пульт</h1>
+<p class="err">__ERR__</p>
+<label for="u">Логин</label>
+<input id="u" name="username" required autocomplete="username" autocapitalize="off" autocorrect="off">
+<label for="p">Пароль</label>
+<input id="p" name="password" type="password" required autocomplete="current-password">
+<button type="submit">Войти</button>
+</form></body></html>
+"""
+
+
+def _session_secret() -> bytes:
+    env = os.environ.get("TV_PANEL_SESSION_SECRET")
+    if env:
+        return env.encode("utf-8")
+    try:
+        if SESSION_SECRET_FILE.is_file():
+            return SESSION_SECRET_FILE.read_bytes().strip()
+        SESSION_SECRET_FILE.parent.mkdir(parents=True, exist_ok=True)
+        secret = secrets.token_hex(32).encode("ascii")
+        SESSION_SECRET_FILE.write_bytes(secret)
+        os.chmod(SESSION_SECRET_FILE, 0o600)
+        return secret
+    except Exception:
+        return b"tv-panel-dev-secret-change-me"
+
+
+def make_session_token(user: str) -> str:
+    exp = int(time.time()) + SESSION_MAX_AGE
+    payload = f"{user}:{exp}"
+    sig = hmac.new(_session_secret(), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+    raw = f"{payload}:{sig}".encode("utf-8")
+    return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+
+
+def parse_session_token(token: str) -> str | None:
+    try:
+        pad = "=" * (-len(token) % 4)
+        raw = base64.urlsafe_b64decode(token + pad).decode("utf-8")
+        user, exp_s, sig = raw.rsplit(":", 2)
+        if int(exp_s) < int(time.time()):
+            return None
+        payload = f"{user}:{exp_s}"
+        expect = hmac.new(_session_secret(), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(sig, expect):
+            return None
+        if user not in ALLOWED_USERS:
+            return None
+        return user
+    except Exception:
+        return None
+
+
+def cookie_header_value(user: str) -> str:
+    token = make_session_token(user)
+    return (
+        f"{SESSION_COOKIE}={token}; Path=/; Max-Age={SESSION_MAX_AGE}; "
+        f"HttpOnly; Secure; SameSite=Lax"
+    )
 
 
 def check_linux_user(username: str, password: str) -> bool:
@@ -335,6 +423,10 @@ def send_json(handler: BaseHTTPRequestHandler, data: dict, code: int = 200) -> N
     handler.send_header("Content-Type", "application/json; charset=utf-8")
     handler.send_header("Content-Length", str(len(body)))
     handler.send_header("Cache-Control", "no-store")
+    cookie = getattr(handler, "_pending_set_cookie", None)
+    if cookie:
+        handler.send_header("Set-Cookie", cookie)
+        handler._pending_set_cookie = None
     handler.end_headers()
     handler.wfile.write(body)
 
@@ -353,6 +445,10 @@ def send_file(
     handler.send_header("Content-Type", content_type)
     handler.send_header("Content-Length", str(len(data)))
     handler.send_header("Cache-Control", cache)
+    cookie = getattr(handler, "_pending_set_cookie", None)
+    if cookie:
+        handler.send_header("Set-Cookie", cookie)
+        handler._pending_set_cookie = None
     handler.end_headers()
     handler.wfile.write(data)
 
@@ -361,31 +457,93 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt: str, *args) -> None:
         return
 
+    def _cookies(self) -> dict[str, str]:
+        out: dict[str, str] = {}
+        raw = self.headers.get("Cookie") or ""
+        for part in raw.split(";"):
+            if "=" not in part:
+                continue
+            k, v = part.split("=", 1)
+            out[k.strip()] = v.strip()
+        return out
+
+    def _wants_html_login(self) -> bool:
+        path = urllib.parse.urlparse(self.path).path
+        if path.startswith("/api/"):
+            return False
+        dest = self.headers.get("Sec-Fetch-Dest", "")
+        if dest in ("document", "iframe", ""):
+            # empty dest: older clients / some PWA navigations
+            if dest == "document" or dest == "iframe":
+                return True
+            accept = self.headers.get("Accept", "")
+            if not accept or "text/html" in accept:
+                return True
+        accept = self.headers.get("Accept", "")
+        return "text/html" in accept
+
+    def _issue_session(self, user: str) -> None:
+        self._pending_set_cookie = cookie_header_value(user)
+
     def require_auth(self) -> bool:
-        hdr = self.headers.get("Authorization", "")
-        if not hdr.startswith("Basic "):
-            self.send_auth_required()
-            return False
-        try:
-            raw = base64.b64decode(hdr[6:].strip()).decode("utf-8")
-            user, password = raw.split(":", 1)
-        except (ValueError, UnicodeDecodeError, base64.binascii.Error):
-            self.send_auth_required()
-            return False
-        if not check_linux_user(user, password):
-            self.send_auth_required()
-            return False
-        return True
+        sess_user = parse_session_token(self._cookies().get(SESSION_COOKIE, ""))
+        if sess_user:
+            self._issue_session(sess_user)
+            return True
+        self.send_auth_required()
+        return False
 
     def send_auth_required(self) -> None:
-        body = b"Unauthorized"
+        # No WWW-Authenticate — only web form / JSON (avoids browser Basic dialog)
+        if self._wants_html_login():
+            body = LOGIN_HTML.replace("__ERR__", "").encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        body = b'{"ok":false,"error":"unauthorized"}'
         self.send_response(401)
-        self.send_header("WWW-Authenticate", 'Basic realm="TV Panel"')
-        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(body)
+
+    def handle_login(self) -> None:
+        length = int(self.headers.get("Content-Length") or 0)
+        raw = self.rfile.read(length) if length else b""
+        ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip()
+        user = ""
+        password = ""
+        if ctype == "application/json":
+            try:
+                data = json.loads(raw.decode("utf-8") or "{}")
+            except json.JSONDecodeError:
+                data = {}
+            user = str(data.get("username") or "")
+            password = str(data.get("password") or "")
+        else:
+            form = urllib.parse.parse_qs(raw.decode("utf-8", errors="replace"))
+            user = (form.get("username") or [""])[0]
+            password = (form.get("password") or [""])[0]
+        if not check_linux_user(user, password):
+            body = LOGIN_HTML.replace("__ERR__", "Неверный логин или пароль").encode("utf-8")
+            self.send_response(401)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        self.send_response(303)
+        self.send_header("Set-Cookie", cookie_header_value(user))
+        self.send_header("Location", "/")
+        self.send_header("Content-Length", "0")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
 
     def do_GET(self) -> None:
         path = urllib.parse.urlparse(self.path).path
@@ -437,9 +595,12 @@ class Handler(BaseHTTPRequestHandler):
             self.send_error(404)
 
     def do_POST(self) -> None:
+        path = urllib.parse.urlparse(self.path).path
+        if path == "/login":
+            self.handle_login()
+            return
         if not self.require_auth():
             return
-        path = urllib.parse.urlparse(self.path).path
         try:
             data = read_json(self)
         except json.JSONDecodeError:
