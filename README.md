@@ -2,6 +2,9 @@
 
 Черновики и эксперименты Cursor.
 
-SOC TV / DietPi dashboard перенесён в приватный репозиторий:
+## Перенесено в отдельные репозитории
 
-- https://github.com/golovizninni-ai/vls-stuff/tree/diet-pi-dashboard
+| Было | Куда |
+|------|------|
+| 8BitDo / Bazzite HTPC-твики | https://github.com/golovizninni-ai/bazzite-tweaks |
+| SOC TV / DietPi dashboard | https://github.com/golovizninni-ai/vls-stuff/tree/diet-pi-dashboard |
