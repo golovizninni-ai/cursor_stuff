@@ -1,0 +1,30 @@
+# Syncthing hub — Ubuntu VM on Proxmox
+# Saves live on NFS (ZFS RAIDZ2 on Proxmox host).
+# Config MUST stay on the VM local disk (Device ID / keys).
+#
+# Перед запуском:
+# 1. Замените /mnt/storage на реальный NFS mount path
+# 2. mkdir -p config && chown -R 1000:1000 <NFS>/saves
+
+services:
+  syncthing:
+    image: syncthing/syncthing:latest
+    container_name: syncthing
+    hostname: ubuntu-saves-hub
+    network_mode: host
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      STGUIADDRESS: "0.0.0.0:8384"
+    volumes:
+      # Конфиг и ключи — локальный диск VM
+      - ./config:/var/syncthing
+      # Данные — NFS → Proxmox RAIDZ2 (замените путь)
+      - /mnt/storage/saves/emulation:/data/emulation
+      - /mnt/storage/saves/pc-games:/data/pc-games
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://127.0.0.1:8384/rest/noauth/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
