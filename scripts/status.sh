@@ -13,8 +13,17 @@ echo "активный стек: $(read_active_variant 2>/dev/null || echo «н�
 if [[ "$MODE" == "docker" ]]; then
   dc ps || true
   echo
-  echo "логи: docker compose -p $(compose_project "$VARIANT") --project-directory $SRC logs -f ac-worldserver"
-  echo "консоль: docker attach $(docker_world_container "$VARIANT")"
+  world="$(docker_world_container "$VARIANT")"
+  if docker inspect "$world" >/dev/null 2>&1; then
+    echo "world: $(docker inspect -f 'status={{.State.Status}} running={{.State.Running}} restarts={{.RestartCount}}' "$world")"
+    if docker inspect -f '{{.State.Status}}' "$world" | grep -q restarting; then
+      echo "ВНИМАНИЕ: worldserver в Restarting — смотрите логи:"
+      echo "  docker logs --tail 200 $world"
+    fi
+  fi
+  echo
+  echo "логи: docker logs -f $world"
+  echo "консоль: docker attach $world   (отцепление Ctrl+P Ctrl+Q)"
 else
   systemd_for_variant "$VARIANT"
   echo "systemd scope: $UNIT_SCOPE"

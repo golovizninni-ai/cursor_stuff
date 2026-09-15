@@ -11,12 +11,20 @@ stop_other_variants "$VARIANT"
 
 if [[ "$MODE" == "docker" ]]; then
   [[ -f "$SRC/docker-compose.yml" ]] || die "нет docker-compose.yml — переустановите scripts/install-docker.sh $VARIANT"
+  [[ -f "$SRC/docker-compose.override.yml" ]] || die "нет docker-compose.override.yml — переустановите scripts/install-docker.sh $VARIANT"
   log "старт docker $VARIANT (проект $(compose_project "$VARIANT"))"
   dc up -d
+  # overlays: в т.ч. Updates.EnableDatabases=0 (иначе crash loop после старого install)
+  if [[ -d "$SRC/env/dist/etc" ]]; then
+    "$SCRIPT_DIR/docker-apply-overlays.sh" "$VARIANT" || true
+    dc restart ac-worldserver
+  fi
+  wait_docker_ready 180
   write_active_variant "$VARIANT"
   "$SCRIPT_DIR/status.sh" "$VARIANT"
   log "консоль мира: docker attach $(docker_world_container "$VARIANT")  (Ctrl+P Ctrl+Q)"
   log "глушить: scripts/stop.sh"
+  log "логи crash: docker logs --tail 200 $(docker_world_container "$VARIANT")"
   exit 0
 fi
 

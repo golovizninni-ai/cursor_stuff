@@ -1,7 +1,11 @@
-# Отдельный Docker Compose для AzerothCore. Не кладите это в compose *arr.
+# Справка / шаблон. Реальный файл пишет scripts/install-docker.sh
+# в ~/azerothcore-servers/<вариант>/src/docker-compose.override.yml
 #
-# Подставляется в ~/azerothcore-servers/<вариант>/src/docker-compose.override.yml
-# Имена контейнеров и лимиты задаёт scripts/install-docker.sh.
+# Не ставьте AC_UPDATES_ENABLE_DATABASES=7 на ac-worldserver:
+# в Docker миграции делает ac-db-import, у world в образе уже 0.
+# Updates=7 на world → повторный SQL и crash loop (Restarting).
+#
+# Не кладите AzerothCore в compose *arr.
 
 services:
   ac-database:
@@ -17,14 +21,16 @@ services:
       AC_REALM_ZONE: "12"
       AC_DECLINED_NAMES: "1"
       AC_DBC_LOCALE: "0"
+      AC_SUPPORTED_LOCALES: "0,8"
       AC_ENABLE_PLAYER_SETTINGS: "1"
       AC_DBC_ENFORCE_ITEM_ATTRIBUTES: "0"
-      AC_UPDATES_ENABLE_DATABASES: "7"
       AC_MAX_PRIMARY_TRADE_SKILL: "11"
       AC_MAP_UPDATE_THREADS: "4"
       AC_SOAP_ENABLED: "0"
       AC_BIND_IP: "0.0.0.0"
       AC_WORLD_SERVER_PORT: "8085"
+      AC_AUTO_BALANCE_ENABLE_GLOBAL: "1"
+      AC_AUTO_BALANCE_MIN_PLAYERS: "1"
 
   ac-authserver:
     restart: unless-stopped
