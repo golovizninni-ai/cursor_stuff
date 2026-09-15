@@ -1,5 +1,13 @@
 # Песочница локальных моделей (чат, код, поиск, картинки)
 
+Ветка репозитория [cursor_stuff](https://github.com/golovizninni-ai/cursor_stuff): **[`homelab-local-ai`](https://github.com/golovizninni-ai/cursor_stuff/tree/homelab-local-ai)** (не мержить в `main` — как и остальные проекты в оглавлении).
+
+```bash
+git clone -b homelab-local-ai --single-branch \
+  https://github.com/golovizninni-ai/cursor_stuff.git ~/local-ai
+cd ~/local-ai
+```
+
 Хаб на Ubuntu VM в Docker: **Open WebUI** + **Ollama** (GPU) + **SearXNG** + **LiteLLM**.
 Игровые ПК в той же LAN (3060 Ti, 9070 XT) подключаются как воркеры, когда не заняты.
 
@@ -33,8 +41,9 @@
 Требования: Ubuntu LTS, Docker **не из Snap**, проброшенная NVIDIA, драйвер **550+**, диск **50+ ГБ**, лучше **8 ГБ swap**.
 
 ```bash
-sudo git clone <этот-репозиторий> /opt/local-ai   # или положите файлы как удобно
-cd /opt/local-ai          # каталог с docker-compose.yml
+sudo git clone -b homelab-local-ai --single-branch \
+  https://github.com/golovizninni-ai/cursor_stuff.git /opt/local-ai
+cd /opt/local-ai
 chmod +x scripts/*.sh
 
 # 1) GPU в Docker (один раз, нужен sudo)
