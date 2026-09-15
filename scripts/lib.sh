@@ -140,9 +140,17 @@ compose_project() {
 
 dc() {
   local files=()
-  [[ -f "$SRC/docker-compose.yml" ]] && files+=(-f docker-compose.yml)
+  [[ -f "$SRC/docker-compose.yml" ]] || die "нет $SRC/docker-compose.yml"
+  files+=(-f docker-compose.yml)
   [[ -f "$SRC/docker-compose.override.yml" ]] && files+=(-f docker-compose.override.yml)
-  [[ -f "$SRC/docker-compose.ollama.yml" ]] && files+=(-f docker-compose.ollama.yml)
+  # Ollama только если включили опцию и файл конфига на месте
+  if [[ -f "$AC_ROOT/$VARIANT/ollama-chat" && -f "$SRC/docker-compose.ollama.yml" ]]; then
+    if [[ -f "$SRC/env/dist/etc/modules/mod_ollama_chat.conf" ]]; then
+      files+=(-f docker-compose.ollama.yml)
+    else
+      log "предупреждение: ollama-chat включён, но нет mod_ollama_chat.conf — compose.ollama.yml пропущен"
+    fi
+  fi
   docker compose --project-name "$(compose_project "$VARIANT")" --project-directory "$SRC" "${files[@]}" "$@"
 }
 
@@ -164,8 +172,11 @@ docker_mysql() {
   docker exec -i "$(docker_db_container "$VARIANT")" mysql -uroot -p"${pass}" "$@"
 }
 
+# stop_db=1 — освободить и 13306 (при переключении вариантов).
+# stop_db=0 — как stop.sh: БД оставить.
 stop_variant_stack() {
   local v="$1"
+  local stop_db="${2:-0}"
   local mode
   mode="$(read_install_mode "$v")"
   local saved_variant="${VARIANT:-}"
@@ -173,7 +184,12 @@ stop_variant_stack() {
   VARIANT="$v"
   if [[ "$mode" == "docker" ]]; then
     if [[ -f "$SRC/docker-compose.yml" ]] && command -v docker >/dev/null; then
-      docker compose --project-name "$(compose_project "$v")" --project-directory "$SRC" stop ac-worldserver ac-authserver 2>/dev/null || true
+      if [[ "$stop_db" == "1" ]]; then
+        log "стоп docker $v (world+auth+database, освобождаем 3724/8085/13306)"
+        dc stop ac-worldserver ac-authserver ac-database 2>/dev/null || true
+      else
+        dc stop ac-worldserver ac-authserver 2>/dev/null || true
+      fi
     fi
   else
     if [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/ac-${v}-world.service" ]] || [[ -f "/etc/systemd/system/ac-${v}-world.service" ]]; then
@@ -193,7 +209,73 @@ stop_other_variants() {
   for v in playerbots npcbots lonewolf; do
     [[ "$v" != "$current" ]] || continue
     [[ -d "$AC_ROOT/$v" ]] || continue
-    stop_variant_stack "$v"
+    # чужой Docker-стек целиком: иначе 13306 остаётся занят и start/install падает
+    stop_variant_stack "$v" 1
   done
+}
+
+# Ждём, пока world не в Restarting и auth Running. При crash loop — логи и die.
+wait_docker_ready() {
+  local timeout="${1:-180}"
+  local world auth
+  world="$(docker_world_container "$VARIANT")"
+  auth="$(docker_auth_container "$VARIANT")"
+  local i=0
+  local prev_restarts=-1
+  local stable=0
+  log "ждём world/auth до ${timeout}с…"
+  while (( i < timeout )); do
+    if ! docker inspect "$world" >/dev/null 2>&1; then
+      sleep 2
+      i=$((i + 2))
+      continue
+    fi
+    local wstatus wrestarts wrunning
+    wstatus="$(docker inspect -f '{{.State.Status}}' "$world" 2>/dev/null || echo missing)"
+    wrestarts="$(docker inspect -f '{{.RestartCount}}' "$world" 2>/dev/null || echo 0)"
+    wrunning="$(docker inspect -f '{{.State.Running}}' "$world" 2>/dev/null || echo false)"
+    local astatus
+    astatus="$(docker inspect -f '{{.State.Status}}' "$auth" 2>/dev/null || echo missing)"
+
+    if [[ "$wrunning" == "true" && "$wstatus" == "running" && "$astatus" == "running" ]]; then
+      if [[ "$wrestarts" == "$prev_restarts" ]]; then
+        stable=$((stable + 1))
+      else
+        stable=0
+        prev_restarts="$wrestarts"
+      fi
+      # 6с без роста RestartCount
+      if (( stable >= 3 )); then
+        if docker logs --tail 80 "$world" 2>/dev/null | grep -qiE 'World initialized|AzerothCore rev|server starting'; then
+          log "world/auth выглядят живыми (RestartCount=$wrestarts)"
+          return 0
+        fi
+        # даже без точной строки — 6с running без рестарта ок
+        if (( stable >= 5 )); then
+          log "world/auth running (RestartCount=$wrestarts)"
+          return 0
+        fi
+      fi
+    else
+      stable=0
+      prev_restarts="$wrestarts"
+    fi
+
+    # явный crash loop
+    if [[ "$wstatus" == "restarting" ]] || (( wrestarts > 3 && stable == 0 && i > 40 )); then
+      echo
+      log "worldserver в crash loop (status=$wstatus restarts=$wrestarts)"
+      echo "----- docker logs $world (хвост) -----"
+      docker logs --tail 120 "$world" 2>&1 || true
+      echo "----- docker logs ac-db-import -----"
+      docker logs --tail 80 "ac-${VARIANT}-db-import" 2>&1 || true
+      die "исправьте ошибку выше, затем: scripts/start.sh $VARIANT"
+    fi
+
+    sleep 2
+    i=$((i + 2))
+  done
+  docker logs --tail 120 "$world" 2>&1 || true
+  die "таймаут: worldserver не стабилизировался за ${timeout}с. Смотрите: docker logs $world"
 }
 
