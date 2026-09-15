@@ -1,8 +1,18 @@
-# cursor_stuff
+# ARR stack (Docker Compose)
 
-## ARR (Prowlarr/Sonarr/Radarr/Lidarr/Readarr/Bazarr + qBittorrent) через Docker Compose
+Prowlarr / Sonarr / Radarr / Lidarr / Readarr / Bazarr + qBittorrent.
 
-1. Создайте папки (если хотите — вручную):
+Ветка: [`arr-stack`](https://github.com/golovizninni-ai/cursor_stuff/tree/arr-stack) (не мержить в `main`).
+
+```bash
+git clone -b arr-stack --single-branch \
+  https://github.com/golovizninni-ai/cursor_stuff.git ~/arr-stack
+cd ~/arr-stack
+```
+
+## Запуск
+
+1. Создайте папки:
    ```bash
    mkdir -p data/{prowlarr,sonarr,radarr,lidarr,readarr,bazarr,qbittorrent}
    mkdir -p media/{tv,movies,music,books}
@@ -17,6 +27,16 @@
    docker compose up -d
    ```
 
-Дальше откройте веб-интерфейсы контейнеров и настройте:
-- Prowlarr → индексеры
-- Sonarr/Radarr/Lidarr/Readarr → индексеры, download client (qBittorrent), и пути (TV/MOVIES/...)
+## Веб-интерфейсы
+
+| Сервис | Порт |
+|--------|------|
+| Prowlarr | 9696 |
+| Sonarr | 8989 |
+| Radarr | 7878 |
+| Lidarr | 8686 |
+| Readarr | 8787 |
+| Bazarr | 6767 |
+| qBittorrent | 8080 |
+
+Дальше в UI: индексеры в Prowlarr, download client (qBittorrent) и пути в *arr.
