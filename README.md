@@ -214,6 +214,17 @@ systemctl --user disable ac-lonewolf-auth.service ac-lonewolf-world.service
 
 Актуальный `start.sh` перед systemd проверяет бинарники и не даёт уйти в бесконечный `203/EXEC`.
 
+### Полная очистка перед чистой переустановкой
+
+```bash
+cd ~/azerothcore-deploy
+./scripts/uninstall.sh -y lonewolf          # один вариант
+# или всё сразу:
+./scripts/uninstall.sh -y all --purge-data  # + карты в ~/azerothcore-data
+```
+
+Скрипт глушит **и** systemd, **и** Docker (даже если `install-mode` врёт после оборванной установки), снимает юниты, контейнеры/volume, каталог `~/azerothcore-servers/<вариант>`, native MySQL `ac_*_*`. Не трогает *arr. Затем снова `install-docker.sh` / `install.sh`.
+
 ---
 
 ## 9. Если контейнеры есть, а `start.sh` не держит сервис
@@ -270,6 +281,7 @@ docker compose -p ac-lonewolf down
 | `scripts/install.sh` | Нативная установка |
 | `scripts/start.sh` `stop.sh` `status.sh` | День за днём |
 | `scripts/doctor.sh` | Диагностика после сбоя установки |
+| `scripts/uninstall.sh` | Полная очистка варианта / всех (docker+native) |
 | `scripts/docker-apply-overlays.sh` | configs → Docker etc + Updates=0 |
 | `scripts/set-realm-address.sh` | IP в realmlist БД |
 | `scripts/setup-ahbot.sh` | Включить продавца/покупателя АН |
