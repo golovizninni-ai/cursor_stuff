@@ -47,7 +47,7 @@
 
 ## 4. Пошагово: Docker + lonewolf (типичный случай с *arr)
 
-Если недавно ставили Docker и world уходил в **Restarting** — см. [§8](#8-если-контейнеры-есть-а-startsh-не-держит-сервис). Ниже — актуальный порядок.
+Если недавно ставили Docker и world уходил в **Restarting** — см. [§9](#9-если-контейнеры-есть-а-startsh-не-держит-сервис). Ниже — актуальный порядок.
 
 ### 4.1. Подготовка ВМ
 
@@ -177,7 +177,46 @@ account set gmlevel МойЛогин 3 -1
 
 ---
 
-## 8. Если контейнеры есть, а `start.sh` не держит сервис
+## 8. Если установка оборвалась (ваши логи: playerbots / lonewolf)
+
+Типичные ошибки:
+
+| Симптом | Причина | Что делать |
+|---------|---------|------------|
+| `нет systemd-юнита ac-playerbots-world` | Только клон исходников, без `install.sh` | `./scripts/install.sh playerbots` или `./scripts/install-docker.sh playerbots` |
+| `open .../azerothcore-deploy/docker-compose.yml: no such file` | Старая версия скриптов: compose искали в корне деплоя | `cd ~/azerothcore-deploy && git pull` (ветка `azerothcore-progressive`), затем `./scripts/install-docker.sh lonewolf` |
+| `status=203/EXEC` в journalctl | Юниты systemd есть, **бинарников нет** (сборка не прошла) | Остановить цикл (ниже), затем **один** путь: `install.sh` или `install-docker.sh` |
+
+Диагностика на ВМ:
+
+```bash
+cd ~/azerothcore-deploy
+git pull   # ветка azerothcore-progressive
+./scripts/doctor.sh lonewolf
+```
+
+Остановить restart-loop native (если `203/EXEC`):
+
+```bash
+systemctl --user stop ac-lonewolf-auth.service ac-lonewolf-world.service
+systemctl --user disable ac-lonewolf-auth.service ac-lonewolf-world.service
+```
+
+Дальше **не** смешивайте пути на одном варианте — выберите Docker **или** native и доведите установку до конца:
+
+```bash
+# Docker (рядом с *arr, без clang на хосте):
+./scripts/install-docker.sh lonewolf
+
+# Native (clang + MySQL на хосте):
+./scripts/install.sh lonewolf
+```
+
+Актуальный `start.sh` перед systemd проверяет бинарники и не даёт уйти в бесконечный `203/EXEC`.
+
+---
+
+## 9. Если контейнеры есть, а `start.sh` не держит сервис
 
 Симптом: `docker ps` показывает `ac-lonewolf-*`, у world статус **Restarting**, после `start.sh` снова падает.
 
@@ -217,19 +256,20 @@ docker compose -p ac-lonewolf down
 
 ---
 
-## 9. Русификация
+## 10. Русификация
 
 Русский клиент. На сервере: `RealmZone = 12`, `SupportedLocales = 0,8`, **DBC enUS**. Квесты из БД частично на английском. Команды playerbots — английские.
 
 ---
 
-## 10. Карта файлов
+## 11. Карта файлов
 
 | Путь | Назначение |
 |------|------------|
 | `scripts/install-docker.sh` | Docker-установка |
 | `scripts/install.sh` | Нативная установка |
 | `scripts/start.sh` `stop.sh` `status.sh` | День за днём |
+| `scripts/doctor.sh` | Диагностика после сбоя установки |
 | `scripts/docker-apply-overlays.sh` | configs → Docker etc + Updates=0 |
 | `scripts/set-realm-address.sh` | IP в realmlist БД |
 | `scripts/setup-ahbot.sh` | Включить продавца/покупателя АН |

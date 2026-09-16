@@ -134,6 +134,25 @@ write_install_mode() {
   printf '%s\n' "$2" >"$(install_mode_file "$1")"
 }
 
+native_binaries_ok() {
+  local variant="${1:-${VARIANT:-}}"
+  variant_paths "$variant"
+  [[ -x "$PREFIX/bin/authserver" && -x "$PREFIX/bin/worldserver" ]]
+}
+
+require_native_binaries() {
+  local variant="${1:-${VARIANT:-}}"
+  variant_paths "$variant"
+  if native_binaries_ok "$variant"; then
+    return 0
+  fi
+  local hint="Сначала: scripts/install.sh $variant"
+  if [[ -f "$SRC/docker-compose.yml" ]]; then
+    hint="Установка не завершена. Native: scripts/install.sh $variant   Docker: scripts/install-docker.sh $variant"
+  fi
+  die "нет исполняемых $PREFIX/bin/{authserver,worldserver}. $hint"
+}
+
 compose_project() {
   echo "ac-${1}"
 }

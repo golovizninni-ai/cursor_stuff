@@ -29,6 +29,7 @@ if [[ "$MODE" == "docker" ]]; then
 fi
 
 systemd_for_variant "$VARIANT"
+require_native_binaries "$VARIANT"
 
 if sc is-active --quiet "$(world_unit "$VARIANT")" 2>/dev/null; then
   log "уже запущен $VARIANT"
