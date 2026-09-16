@@ -111,11 +111,12 @@ if [[ "$issues" -eq 0 ]] && native_binaries_ok "$VARIANT"; then
   echo "  Native готов: scripts/start.sh $VARIANT"
 elif [[ -f "$SRC/docker-compose.yml" ]]; then
   echo "  1) cd $DEPLOY_ROOT && git pull   # обновить скрипты"
-  echo "  2) systemctl --user stop ac-${VARIANT}-auth ac-${VARIANT}-world 2>/dev/null || true"
+  echo "  2) ./scripts/uninstall.sh -y $VARIANT   # снести обломки docker+native"
   echo "  3) Один путь:"
   echo "       Docker:  ./scripts/install-docker.sh $VARIANT"
   echo "       Native:  ./scripts/install.sh $VARIANT"
   echo "  4) ./scripts/start.sh $VARIANT"
 else
+  echo "  ./scripts/uninstall.sh -y $VARIANT   # если остались юниты/дыры"
   echo "  ./scripts/install.sh $VARIANT"
 fi

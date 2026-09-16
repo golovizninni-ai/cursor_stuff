@@ -198,8 +198,10 @@ git pull   # ветка azerothcore-progressive
 Остановить restart-loop native (если `203/EXEC`):
 
 ```bash
-systemctl --user stop ac-lonewolf-auth.service ac-lonewolf-world.service
-systemctl --user disable ac-lonewolf-auth.service ac-lonewolf-world.service
+./scripts/uninstall.sh -y lonewolf
+# или вручную:
+# systemctl --user stop ac-lonewolf-auth.service ac-lonewolf-world.service
+# systemctl --user disable ac-lonewolf-auth.service ac-lonewolf-world.service
 ```
 
 Дальше **не** смешивайте пути на одном варианте — выберите Docker **или** native и доведите установку до конца:
