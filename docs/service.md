@@ -33,6 +33,15 @@
 
 Автозапуск: `restart: unless-stopped` + `docker.service`.
 
+## Снос / чистая переустановка
+
+```bash
+./scripts/uninstall.sh -y lonewolf
+./scripts/uninstall.sh -y all --purge-data
+```
+
+Чистит docker **и** native-остатки варианта. [README §8](../README.md).
+
 ## Порты
 
 Друзьям: **3724** и **8085**. Ollama (опция) — 11434 только на ВМ. [ports.md](ports.md).
