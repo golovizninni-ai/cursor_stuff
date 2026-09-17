@@ -204,8 +204,99 @@ set realmlist 192.168.x.x
 
 - ГМ: `.gm on`, `.teleport Stormwind`, `.ip set 6` — [docs/gm-commands.md](docs/gm-commands.md)
 - Профессии: на сервере уже `MaxPrimaryTradeSkill = 11`
-- AHBot: создайте персонажа-заглушку, зайдите один раз, выйдите, затем  
-  `./scripts/setup-ahbot.sh lonewolf <account_id> <char_guid>` и `./scripts/restart.sh lonewolf`
+- Аукцион с лотами: [AHBot ниже](#ahbot-setup-ahbotsh)
+
+---
+
+## AHBot (`setup-ahbot.sh`)
+
+По умолчанию после `install.sh` модуль AHBot **выключен** (`EnableSeller/Buyer = 0`): на аукционе пусто, пока не привяжете персонажа-заглушку.
+
+Идея: один «мёртвый» персонаж (не для игры) владеет лотами бота. Скрипт прописывает его `account id` и `guid` в `mod_ahbot.conf` и включает продавца + покупателя.
+
+### Когда делать
+
+После того как вариант уже:
+
+1. установлен (`install.sh`);
+2. хотя бы раз поднимал `worldserver` (появился `~/azerothcore-servers/<вариант>/dist/etc/modules/*ahbot*.conf`);
+3. у вас есть обычный ГМ-аккаунт для игры — заглушку лучше держать **отдельным** аккаунтом.
+
+### Пошагово
+
+**1. Создайте отдельный аккаунт для бота** (в консоли worldserver, без точки):
+
+```
+account create ahbot AhbotPass123
+```
+
+gmlevel этому аккаунту **не** нужен (оставьте 0).
+
+**2. Зайдите в игру этим аккаунтом**, создайте персонажа (любая раса/класс, имя например `Auctioneer`).  
+Дойдите до города с аукционом (Штормград / Оргриммар) — достаточно один раз залогиниться, чтобы персонаж записался в БД.  
+**Выйдите из игры** этим персонажем (он не должен быть онлайн, когда бот крутится).
+
+**3. Узнайте `account_id` и `char_guid`.**
+
+На ВМ (подставьте вариант: `lonewolf` / `npcbots` / `playerbots`):
+
+```bash
+# пароль MySQL
+PASS=$(tr -d '\n' < ~/azerothcore-servers/mysql-password)
+
+# lonewolf → ac_lw ; playerbots → ac_pb ; npcbots → ac_nb
+DB=ac_lw
+
+mysql -h127.0.0.1 -uacore -p"$PASS" -e "
+SELECT id, username FROM ${DB}_auth.account WHERE username='ahbot';
+SELECT guid, name, account FROM ${DB}_characters.characters WHERE name='Auctioneer';
+"
+```
+
+В ответе:
+
+| Поле | Пример | Куда |
+|------|--------|------|
+| `account.id` | `2` | первый числовой аргумент скрипта |
+| `characters.guid` | `1` | второй числовой аргумент |
+
+В игре под ГМ можно посмотреть GUID выбранного персонажа командой `.guid` (если заглушка ещё онлайн — удобно один раз глянуть и сразу выйти).
+
+**4. Запустите скрипт** (сервер может быть включён):
+
+```bash
+cd ~/azerothcore-deploy
+./scripts/setup-ahbot.sh lonewolf 2 1
+#                    вариант  account_id  char_guid
+```
+
+Скрипт:
+
+- находит `~/azerothcore-servers/<вариант>/dist/etc/modules/*ahbot*.conf`;
+- включает `EnableSeller = 1`, `EnableBuyer = 1`;
+- прописывает `Account` и `GUID`;
+- включает торговлю расходниками/профессиями (`VendorTradeGoods`, `LootTradeGoods`, `ProfessionItems`, …);
+- запоминает пару id/guid в `~/azerothcore-servers/shared/ahbot-<вариант>`.
+
+Если пишет «не найден mod_ahbot.conf» — вариант ещё ни разу не стартовал worldserver до конца; сделайте первый запуск в tmux и повторите.
+
+**5. Перезапустите мир**, чтобы конфиг подхватился:
+
+```bash
+./scripts/restart.sh lonewolf
+```
+
+**6. Проверка в игре** (под обычным персонажем):
+
+- откройте аукцион — через несколько минут появятся лоты;
+- ГМ-команды: `.ahbotoptions help`, `.ahbotoptions seller 1`, `.ahbotoptions maxitems 7 400` — [docs/gm-commands.md](docs/gm-commands.md).
+
+### Важно
+
+- **Не заходите** персонажем-заглушкой в игру, пока AHBot включён — лоты привязаны к нему.
+- Для **каждого варианта** (lonewolf / playerbots / …) своя БД → своя заглушка и свой вызов `setup-ahbot.sh <вариант> …`.
+- Повторный запуск скрипта с теми же или новыми id просто перезапишет conf.
+- Выключить продавца/покупателя насовсем: в conf поставьте `EnableSeller/Buyer = 0` или правьте через `.ahbotoptions`, затем `restart.sh`.
 
 ---
 
@@ -301,7 +392,7 @@ cat ~/azerothcore-servers/active-variant
 | `switch.sh` | Переключить уже установленный вариант |
 | `start.sh` `stop.sh` `status.sh` `restart.sh` | День за днём |
 | `set-realm-address.sh` | IP в realmlist + shared |
-| `setup-ahbot.sh` | Включить продавца/покупателя АН |
+| `setup-ahbot.sh` | Включить AHBot: привязать аккаунт + GUID заглушки (см. [раздел AHBot](#ahbot-setup-ahbotsh)) |
 | `import-data.sh` | Распаковать maps/dbc в `~/azerothcore-data` |
 | `doctor.sh` | Диагностика |
 | `uninstall.sh` | Полный снос |
