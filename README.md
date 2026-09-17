@@ -6,7 +6,7 @@
 
 | Ветка | Описание |
 |-------|----------|
-| [`azerothcore-progressive`](https://github.com/golovizninni-ai/cursor_stuff/tree/azerothcore-progressive) | AzerothCore 3.3.5a (playerbots / npcbots / lonewolf): native или Docker, Individual Progression, AHBot, AutoBalance, Ollama и HD-клиент |
+| [`azerothcore-progressive`](https://github.com/golovizninni-ai/cursor_stuff/tree/azerothcore-progressive) | AzerothCore 3.3.5a (playerbots / npcbots / lonewolf): **только native**, Individual Progression, AHBot, AutoBalance, опции Ollama и HD-клиента |
 | [`homelab-local-ai`](https://github.com/golovizninni-ai/cursor_stuff/tree/homelab-local-ai) | Локальный AI-хаб (Docker): Open WebUI, Ollama, SearXNG, ComfyUI, Aider; воркеры 3060 Ti / 9070 XT в LAN |
 | [`tdarr-hevc`](https://github.com/golovizninni-ai/cursor_stuff/tree/tdarr-hevc) | Tdarr HEVC + mux озвучек: hardlink-скрипт `flatten.py`, Compose, NVENC (GTX 1660 Ti) |
 | [`arr-stack`](https://github.com/golovizninni-ai/cursor_stuff/tree/arr-stack) | ARR-стек в Docker: Prowlarr / Sonarr / Radarr / Lidarr / Readarr / Bazarr + qBittorrent |
