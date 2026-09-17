@@ -1,23 +1,11 @@
 #!/usr/bin/env bash
-# Сначала world (сейв), потом auth. Docker или systemd — по install-mode.
+# Сначала world (сейв), потом auth.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib.sh
 source "$SCRIPT_DIR/lib.sh"
 
 resolve_variant "${1:-}"
-MODE="$(read_install_mode "$VARIANT")"
-
-if [[ "$MODE" == "docker" ]]; then
-  log "стоп docker world ($VARIANT)"
-  dc stop ac-worldserver || true
-  log "стоп docker auth"
-  dc stop ac-authserver || true
-  log "сервер $VARIANT выключен (БД контейнер жив)"
-  dc ps || true
-  exit 0
-fi
-
 systemd_for_variant "$VARIANT"
 log "стоп world ($VARIANT), ждём сейв до 90с — не kill -9"
 sc stop "$(world_unit "$VARIANT")" || true

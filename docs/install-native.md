@@ -1,34 +1,16 @@
-# Нативная установка (вариант A)
+# Нативная установка
 
-Хостовый clang + MySQL + systemd. Не нужен Docker. Если на ВМ уже крутится *arr в Docker и не хотите второй тяжёлый build — смотрите [install-docker.md](install-docker.md).
+Кратко: весь пошаговый путь — в [README.md](../README.md).
 
 ```bash
 cd ~/azerothcore-deploy
-./scripts/install.sh playerbots    # npcbots / lonewolf
+./scripts/install.sh lonewolf    # или npcbots / playerbots
 ```
 
-Скрипт: пакеты, MySQL 8, клон форка, сборка, конфиги, юниты. Маркер: `~/azerothcore-servers/<вариант>/install-mode` = `native`.
+Пакеты, MySQL, клон форка, сборка, systemd.  
+Карты: `scripts/import-data.sh` → `~/azerothcore-data`.  
+Первый импорт SQL — tmux + ручной `worldserver`, не сразу systemd.
 
-Каталоги:
+Второй вариант поверх: снова `install.sh <другой>`. Переключение без пересборки: `scripts/switch.sh <вариант>`.
 
-- `~/azerothcore-servers/<вариант>/`
-- пароль БД: `~/azerothcore-servers/mysql-password`
-- карты: `~/azerothcore-data/` — [desktop/README.md](../desktop/README.md)
-
-Первый импорт SQL — tmux, затем:
-
-```bash
-./scripts/start.sh playerbots
-./scripts/stop.sh
-./scripts/enable-autostart.sh playerbots
-```
-
-Подробнее: [service.md](service.md). Аккаунт: `account create` в консоли worldserver. AHBot: `setup-ahbot.sh`. Адрес реалма: `set-realm-address.sh`. Команды в чате (`.gm on`, `.ip`, боты): [gm-commands.md](gm-commands.md).
-
-Опция чата ботов (GPU на ВМ): `scripts/enable-ollama-chat.sh playerbots` — [ollama-chat.md](ollama-chat.md).
-
-## Опция: красивее модели и текстуры
-
-Сервер уже готов. На клиенте Bazzite можно поставить HD-патч ChromieCraft (современные модели, часть текстур) или установщик `patchmenu.exe`. К сборке на ВМ это не относится.
-
-Инструкция: [visuals.md](visuals.md). Realmlist после патча должен остаться IP вашей ВМ.
+Сервис день за днём: [service.md](service.md).

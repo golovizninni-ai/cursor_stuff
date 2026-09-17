@@ -1,43 +1,41 @@
 #!/usr/bin/env bash
-# Запуск выбранного варианта. Native = systemd, Docker = compose.
+# Запуск выбранного варианта (systemd). Один стек на 3724/8085.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib.sh
 source "$SCRIPT_DIR/lib.sh"
 
-resolve_variant "${1:-}"
-MODE="$(read_install_mode "$VARIANT")"
-stop_other_variants "$VARIANT"
-
-if [[ "$MODE" == "docker" ]]; then
-  [[ -f "$SRC/docker-compose.yml" ]] || die "нет docker-compose.yml — переустановите scripts/install-docker.sh $VARIANT"
-  [[ -f "$SRC/docker-compose.override.yml" ]] || die "нет docker-compose.override.yml — переустановите scripts/install-docker.sh $VARIANT"
-  log "старт docker $VARIANT (проект $(compose_project "$VARIANT"))"
-  dc up -d
-  # overlays: в т.ч. Updates.EnableDatabases=0 (иначе crash loop после старого install)
-  if [[ -d "$SRC/env/dist/etc" ]]; then
-    "$SCRIPT_DIR/docker-apply-overlays.sh" "$VARIANT" || true
-    dc restart ac-worldserver
+ARG="${1:-}"
+if [[ -z "$ARG" ]]; then
+  ARG="$(read_active_variant || true)"
+  if [[ -z "$ARG" ]]; then
+    die "укажите вариант: playerbots|npcbots|lonewolf
+Уже стоят: $(list_installed_variants | tr '\n' ' ' || echo «ничего»)
+После install активный пишется сам; либо: scripts/start.sh <вариант>"
   fi
-  wait_docker_ready 180
-  write_active_variant "$VARIANT"
-  "$SCRIPT_DIR/status.sh" "$VARIANT"
-  log "консоль мира: docker attach $(docker_world_container "$VARIANT")  (Ctrl+P Ctrl+Q)"
-  log "глушить: scripts/stop.sh"
-  log "логи crash: docker logs --tail 200 $(docker_world_container "$VARIANT")"
-  exit 0
+  if ! variant_installed "$ARG"; then
+    die "active-variant=$ARG, но установка неполная (нет бинарников/юнитов).
+Укажите явно рабочий вариант: scripts/start.sh <вариант>
+Или доставьте: scripts/install.sh $ARG
+Сейчас стоят: $(list_installed_variants | tr '\n' ' ' || echo «ничего»)"
+  fi
+  log "вариант из active-variant: $ARG"
 fi
 
-systemd_for_variant "$VARIANT"
+resolve_variant "$ARG"
 require_native_binaries "$VARIANT"
+stop_other_variants "$VARIANT"
+systemd_for_variant "$VARIANT"
 
 if sc is-active --quiet "$(world_unit "$VARIANT")" 2>/dev/null; then
   log "уже запущен $VARIANT"
+  write_active_variant "$VARIANT"
   exec "$SCRIPT_DIR/status.sh" "$VARIANT"
 fi
 
 if pgrep -x worldserver >/dev/null 2>&1 || pgrep -x authserver >/dev/null 2>&1; then
-  die "authserver/worldserver крутятся не через systemd (tmux?). Остановите консоль или: scripts/stop.sh"
+  die "authserver/worldserver крутятся не через systemd (tmux?).
+Остановите консоль или: scripts/stop.sh"
 fi
 
 $SUDO systemctl start mysql 2>/dev/null || $SUDO systemctl start mysqld 2>/dev/null || true
@@ -55,3 +53,4 @@ else
   log "логи: journalctl -u $(world_unit "$VARIANT") -f"
 fi
 log "глушить: scripts/stop.sh"
+log "другой вариант: scripts/switch.sh <вариант>"

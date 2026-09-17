@@ -1,8 +1,9 @@
-# Запуск, стоп и автозапуск
+# Запуск, стоп, переключение
 
-Один стек: `playerbots`, `npcbots` или `lonewolf`. Режим: `~/azerothcore-servers/<вариант>/install-mode` (`native` или `docker`). Не `kill -9` на worldserver.
+Один активный стек на портах **3724/8085**: `playerbots`, `npcbots` или `lonewolf`.  
+Не `kill -9` на worldserver — сначала `stop.sh` (сейв).
 
-## Обычный день (оба режима)
+## Обычный день
 
 ```bash
 ./scripts/start.sh lonewolf
@@ -11,37 +12,35 @@
 ./scripts/restart.sh
 ```
 
-Стоп **того же** варианта: сначала world, потом auth. В Docker БД этого варианта остаётся (быстрый следующий start).
+Без аргумента `start.sh` берёт `~/azerothcore-servers/active-variant` и проверяет, что вариант реально установлен.
 
-Переключение на другой вариант: `start.sh` глушит чужой стек целиком, **включая database**, иначе порт **13306** занят и новый world падает в Restarting.
+## Переключение
 
-## Native
+```bash
+./scripts/switch.sh playerbots   # уже установленный
+./scripts/install.sh npcbots     # поставить новый поверх
+```
 
-Логи: `journalctl --user -u ac-lonewolf-world -f` (подставьте вариант)
+`switch.sh` копирует аккаунты/IP реалма, если оба варианта уже поднимались.  
+Мир и персонажи у каждого варианта свои.
 
-Первый импорт SQL — tmux, не systemd. Консоль: `account create`. Потом `start.sh`. Команды: [gm-commands.md](gm-commands.md).
+## Логи
+
+```bash
+journalctl --user -u ac-lonewolf-world.service -f
+```
+
+Первый импорт SQL — tmux, не systemd. Консоль: `account create`. Команды: [gm-commands.md](gm-commands.md).
 
 Автозапуск: `./scripts/enable-autostart.sh lonewolf` (mysql + linger + юниты).
 
-## Docker
-
-Логи: `docker logs -f ac-lonewolf-worldserver`
-
-Консоль: `docker attach ac-lonewolf-worldserver`. Отцепиться: **Ctrl+P Ctrl+Q**.
-
-Если `status` показывает Restarting — [README §8](../README.md) и [install-docker.md](install-docker.md).
-
-Автозапуск: `restart: unless-stopped` + `docker.service`.
-
-## Снос / чистая переустановка
+## Снос
 
 ```bash
 ./scripts/uninstall.sh -y lonewolf
 ./scripts/uninstall.sh -y all --purge-data
 ```
 
-Чистит docker **и** native-остатки варианта. [README §8](../README.md).
-
 ## Порты
 
-Друзьям: **3724** и **8085**. Ollama (опция) — 11434 только на ВМ. [ports.md](ports.md).
+Друзьям: **3724** и **8085**. Ollama — только localhost. [ports.md](ports.md).

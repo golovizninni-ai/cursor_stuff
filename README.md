@@ -1,293 +1,311 @@
-# AzerothCore 3.3.5a: прогрессия, боты, аукцион
+# AzerothCore 3.3.5a — прогрессия, боты, аукцион
 
 Личный сервер WoW **3.3.5a (12340)** на **Ubuntu 22.04/24.04 LTS**.  
-Клиент — на **Bazzite** (не Windows). Debian-ВМ не нужна.
+Клиент — на **Bazzite** (не Windows).
 
-Этот репозиторий — скрипты деплоя. Клонируйте его на ВМ, например в `~/azerothcore-deploy`.
+Этот репозиторий — только **нативная** установка (clang + MySQL + systemd).  
+Docker для AzerothCore **не используется** (на ВМ Docker может стоять для *arr — его не трогаем).
+
+Клонируйте на ВМ, например в `~/azerothcore-deploy`.
 
 ---
 
-## 1. Что получите
+## Что получите
 
 | Вариант | Для кого | ИИ-боты |
 |---------|----------|---------|
-| **playerbots** | ~200 ботов в `/who`, рейд по инвайту | да (отдельный форк) |
+| **lonewolf** | 1–3 живых игрока | нет |
 | **npcbots** | вы + до 4 нанятых спутников | да (NPCBots) |
-| **lonewolf** | 1–3 живых игрока / друзья | нет |
+| **playerbots** | ~200 ботов в `/who`, рейд по инвайту | да (отдельный форк) |
 
-У всех: **Individual Progression** (тиры на персонаже), все профессии на одном чаре, **AHBot**, **AutoBalance**, русский клиент.
+У всех: **Individual Progression**, все профессии на одном чаре, **AHBot**, **AutoBalance**, русский клиент.
 
-Одновременно на портах **3724/8085** крутится **только один** вариант.
+На портах **3724 / 8085** крутится **только один** вариант. Остальные можно держать установленными и переключать.
 
----
+### Важно про «поверх»
 
-## 2. Выберите путь установки
+Каждый вариант — **своя сборка ядра** (разные git-форки) и **своя БД мира/персонажей**.  
+Общее на ВМ:
 
-| | Команда | Когда брать |
-|---|---|---|
-| **A. Нативно** | `./scripts/install.sh <вариант>` | clang + MySQL + systemd на хосте |
-| **B. Docker** | `./scripts/install-docker.sh <вариант>` | рядом с *arr, без MySQL/clang на хосте |
+- карты `~/azerothcore-data`
+- пароль MySQL `~/azerothcore-servers/mysql-password`
+- IP реалма в `~/azerothcore-servers/shared/`
+- аккаунты (логины) — копируются при `install.sh` / `switch.sh`, если у обоих уже был первый запуск
 
-Дальше один вход: `start.sh` / `stop.sh` / `status.sh` (смотрит `~/azerothcore-servers/<вариант>/install-mode`).
-
-Не смешивайте native и Docker **на одном** варианте. Не кладите AzerothCore в compose Sonarr/Radarr.
-
-Подробнее: [docs/install-native.md](docs/install-native.md), [docs/install-docker.md](docs/install-docker.md).
+Персонажи **не** переезжают между lonewolf ↔ playerbots ↔ npcbots (несовместимые схемы).
 
 ---
 
-## 3. Железо
+## Железо
 
-- **playerbots**, 200 ботов: от **16 ГБ RAM** (с *arr теснее — уменьшите число ботов в конфиге).
-- **npcbots / lonewolf**: обычно **8 ГБ** (в Docker у world `mem_limit` 4g, у playerbots 8g).
-- Диск: десятки ГБ под исходники, образы и client-data.
-- GPU (опция чата Ollama): проброшенная **1660 Ti** / позже **3070 Ti**.
+| Вариант | RAM на ВМ |
+|---------|-----------|
+| lonewolf / npcbots | от **8 ГБ** |
+| playerbots (~200 ботов) | от **16 ГБ** (с *arr теснее — уменьшите число ботов в конфиге) |
+
+Диск: десятки ГБ (исходники + сборка + maps).  
+GPU нужен только для опции чата Ollama у playerbots.
 
 ---
 
-## 4. Пошагово: Docker + lonewolf (типичный случай с *arr)
+## Пошаговая установка (голая Ubuntu + Docker для *arr)
 
-Если недавно ставили Docker и world уходил в **Restarting** — см. [§9](#9-если-контейнеры-есть-а-startsh-не-держит-сервис). Ниже — актуальный порядок.
+Ниже — полный путь с нуля. Подставьте свой логин вместо `romanov`, если нужно.
 
-### 4.1. Подготовка ВМ
+### Шаг 0. SSH на ВМ
+
+```bash
+ssh romanov@IP_ВМ
+```
+
+Нужен пользователь с `sudo` (пароль спросит при установке пакетов).
+
+### Шаг 1. Минимальные пакеты и клон
 
 ```bash
 sudo apt update
 sudo apt install -y git curl ca-certificates
-# docker и compose уже должны быть (как у *arr)
-docker compose version
 ```
 
 ```bash
-git clone <этот-репозиторий> ~/azerothcore-deploy
+git clone -b azerothcore-progressive --single-branch \
+  https://github.com/golovizninni-ai/cursor_stuff.git ~/azerothcore-deploy
 cd ~/azerothcore-deploy
+git pull
 ```
 
-### 4.2. Установка
+*(Docker / *arr не трогайте — AzerothCore ставится мимо compose.)*
 
-Долго (клон + сборка образов + скачивание карт enUS).
+### Шаг 2. Выберите вариант и поставьте
+
+Рекомендуемый первый заход — **lonewolf** (быстрее и легче).
 
 ```bash
-./scripts/install-docker.sh lonewolf
+cd ~/azerothcore-deploy
+./scripts/install.sh lonewolf
 ```
 
-Скрипт:
+Долго: пакеты, MySQL, клон ядра, cmake/clang, конфиги, systemd-юниты.  
+В конце скрипт сам запишет `active-variant=lonewolf`.
 
-1. Клонирует официальный `azerothcore-wotlk` + модули (IP, AHBot, AutoBalance).
-2. Останавливает **другие** варианты целиком (включая их MySQL на 13306).
-3. Пишет `.env` и `docker-compose.override.yml`.
-4. `docker compose up -d --build`.
-5. Ждёт, пока world/auth стабильны.
-6. Применяет `configs/*.overlay.conf` и ставит **`Updates.EnableDatabases = 0`** на world (миграции только в `ac-db-import`).
-7. Рестартит world и снова проверяет здоровье.
+Каталоги после успеха:
 
-Каталоги:
+| Путь | Назначение |
+|------|------------|
+| `~/azerothcore-servers/lonewolf/src/` | исходники |
+| `~/azerothcore-servers/lonewolf/dist/bin/` | `authserver`, `worldserver` |
+| `~/azerothcore-servers/mysql-password` | пароль пользователя `acore` |
+| `~/azerothcore-servers/active-variant` | какой стек поднимет `start.sh` без аргументов |
+| `~/azerothcore-data/` | карты (пока пусто — шаг 3) |
 
-- исходники: `~/azerothcore-servers/lonewolf/src/`
-- маркер: `~/azerothcore-servers/lonewolf/install-mode` → `docker`
-- пароль БД: `~/azerothcore-servers/mysql-password` (и в `.env`)
+### Шаг 3. Клиентские data (один раз на ВМ)
 
-### 4.3. Аккаунт ГМ
+Серверу нужны папки **dbc, maps, vmaps, mmaps** (лучше ещё `cameras`) в `~/azerothcore-data`.  
+Язык **dbc = enUS** (даже если играете на русском клиенте).
+
+Самый простой путь — готовый архив:
+
+1. Скачайте client-data enUS с релизов [wowgaming/client-data](https://github.com/wowgaming/client-data/releases) (или зеркало AzerothCore).
+2. Залейте на ВМ и распакуйте:
 
 ```bash
-docker attach ac-lonewolf-worldserver
+# пример: архив уже лежит в /tmp/ac-data.zip
+./scripts/import-data.sh /tmp/ac-data.zip
+ls ~/azerothcore-data   # должны быть maps, dbc, vmaps, mmaps
 ```
 
-В консоли worldserver (без точки):
+Альтернатива — экстракт с вашего клиента на Bazzite: [desktop/README.md](desktop/README.md).
+
+**Без этого шага worldserver не поднимется нормально.**
+
+### Шаг 4. Первый запуск в tmux (импорт SQL + ГМ-аккаунт)
+
+Systemd ещё не используйте: первый старт создаёт таблицы и может идти долго.
+
+```bash
+tmux new -s ac-lonewolf
+```
+
+Внутри сессии:
+
+```bash
+~/azerothcore-servers/lonewolf/dist/bin/authserver &
+~/azerothcore-servers/lonewolf/dist/bin/worldserver
+```
+
+Ждите в логе что-то вроде `World initialized` / `AzerothCore`.  
+В **консоли worldserver** (курсор в том же окне), **без точки** в начале:
 
 ```
 account create МойЛогин МойПароль
 account set gmlevel МойЛогин 3 -1
 ```
 
-Отцепиться: **Ctrl+P**, затем **Ctrl+Q**. Не Ctrl+C — это убьёт процесс в контейнере с TTY.
+Остановить worldserver: `Ctrl+C`.  
+Отцепить tmux, не убивая auth: `Ctrl+B`, затем `D`.  
+Потом можно убить оставшийся auth:
 
-### 4.4. IP реалма (чтобы клиент не шёл на 127.0.0.1)
+```bash
+pkill -x authserver || true
+```
+
+### Шаг 5. IP реалма
+
+Узнайте IP ВМ в LAN (или белый / Tailscale):
+
+```bash
+hostname -I | awk '{print $1}'
+```
 
 ```bash
 ./scripts/set-realm-address.sh lonewolf 192.168.x.x
-# или белый IP / Tailscale
 ```
 
-### 4.5. Обычный день
+Иначе клиент после логина пойдёт на `127.0.0.1`.
+
+### Шаг 6. Обычный день
 
 ```bash
-./scripts/start.sh lonewolf
+cd ~/azerothcore-deploy
+./scripts/start.sh lonewolf    # или просто ./scripts/start.sh — возьмёт active-variant
 ./scripts/status.sh
-./scripts/stop.sh          # world+auth; БД этого варианта остаётся
+./scripts/stop.sh              # сначала world (сейв), потом auth — не kill -9
+```
+
+Логи:
+
+```bash
+journalctl --user -u ac-lonewolf-world.service -f
+```
+
+Автозапуск после перезагрузки ВМ (когда всё стабильно):
+
+```bash
 ./scripts/enable-autostart.sh lonewolf
 ```
 
-Друзьям проброс: **TCP 3724** и **8085**. MySQL (3306/13306) наружу не открывать. [docs/ports.md](docs/ports.md).
+### Шаг 7. Клиент на Bazzite
 
-### 4.6. Клиент на Bazzite
+1. WoW **3.3.5a build 12340**, язык **ruRU** (Lutris / Bottles / Proton).
+2. В префиксе игры файл `Data/ruRU/realmlist.wtf`:
 
-1. WoW **3.3.5a build 12340**, язык **ruRU**, в Lutris / Bottles / Proton.
-2. В префиксе игры: `Data/ruRU/realmlist.wtf` → `set realmlist IP_ВМ`
-3. Аддоны: [docs/addons.md](docs/addons.md). Геймпад: [docs/consoleport.md](docs/consoleport.md).
-
-Для Docker карты с клиента снимать не нужно — их качает `ac-client-data-init`.
-
----
-
-## 5. Пошагово: нативно (без Docker для AC)
-
-```bash
-./scripts/install.sh playerbots   # или npcbots / lonewolf
+```
+set realmlist 192.168.x.x
 ```
 
-Пакеты, MySQL 8, клон, cmake, systemd. Затем data:
+(тот же IP, что в `set-realm-address.sh`)
 
-- либо архив enUS → `scripts/import-data.sh`
-- либо экстракт с Bazzite → [desktop/README.md](desktop/README.md)
+3. Логин/пароль — те, что создали в шаге 4.  
+4. Аддоны: [docs/addons.md](docs/addons.md). Геймпад: [docs/consoleport.md](docs/consoleport.md).
 
-Первый импорт SQL — **tmux** + ручной `worldserver`, не сразу systemd. Дальше `start.sh`. Подробнее: [docs/install-native.md](docs/install-native.md), [docs/service.md](docs/service.md).
+Друзьям пробросьте **TCP 3724 и 8085**. MySQL (3306) наружу не открывать. [docs/ports.md](docs/ports.md).
 
----
-
-## 6. После входа в игру
+### Шаг 8. В игре
 
 - ГМ: `.gm on`, `.teleport Stormwind`, `.ip set 6` — [docs/gm-commands.md](docs/gm-commands.md)
-- Профессии: `MaxPrimaryTradeSkill = 11`, лишние — макрос `/cast Enchanting`
-- **playerbots:** `.playerbots bot addclass warrior`, в `/p`: `follow`, `attack`
-- **npcbots:** `.npcbot spawn` / gossip найма
-- **lonewolf:** без ИИ, сложность режет AutoBalance
-- AHBot: создайте персонажа-заглушку, зайдите один раз, затем  
-  `./scripts/setup-ahbot.sh <вариант> <account_id> <guid>`
+- Профессии: на сервере уже `MaxPrimaryTradeSkill = 11`
+- AHBot: создайте персонажа-заглушку, зайдите один раз, выйдите, затем  
+  `./scripts/setup-ahbot.sh lonewolf <account_id> <char_guid>` и `./scripts/restart.sh lonewolf`
 
 ---
 
-## 7. Опции
+## Второй вариант поверх (playerbots / npcbots)
 
-### Живой чат ботов (Ollama) — только playerbots
+Lonewolf уже работает — хотите ботов:
 
-На ВМ с GPU:
+```bash
+cd ~/azerothcore-deploy
+./scripts/install.sh playerbots
+```
+
+Что произойдёт:
+
+1. Lonewolf остановится (порты освободятся).
+2. Соберётся **отдельное** дерево `~/azerothcore-servers/playerbots/`.
+3. Создадутся БД `ac_pb_*` (мир lonewolf `ac_lw_*` **останется**).
+4. `active-variant` станет `playerbots`.
+5. Карты те же (`~/azerothcore-data`).
+6. Если у lonewolf уже был первый запуск — скрипт попробует скопировать **аккаунты** и IP реалма.
+
+Потом снова **первый запуск playerbots в tmux** (свои пустые world/characters), затем:
+
+```bash
+./scripts/set-realm-address.sh playerbots 192.168.x.x
+./scripts/start.sh playerbots
+```
+
+Вернуться на lonewolf без пересборки:
+
+```bash
+./scripts/switch.sh lonewolf
+```
+
+`switch.sh` синхронизирует аккаунты/IP и поднимает выбранный стек.  
+Персонажи у каждого варианта свои.
+
+Проверка:
+
+```bash
+./scripts/status.sh
+./scripts/doctor.sh playerbots
+cat ~/azerothcore-servers/active-variant
+```
+
+Почему раньше `start.sh` поднимал lonewolf после неудачного playerbots:  
+`active-variant` пишется только после успешного install/start. Неполный playerbots его не менял. Теперь `install.sh` пишет active сразу, а `start.sh` без аргумента проверяет, что вариант реально установлен.
+
+---
+
+## Снос и чистая переустановка
+
+```bash
+./scripts/uninstall.sh -y lonewolf          # один вариант
+./scripts/uninstall.sh -y all --purge-data  # всё + карты
+./scripts/install.sh lonewolf
+```
+
+Снимает systemd, процессы, каталоги, MySQL `ac_*_*`, остатки старых docker-контейнеров `ac-*` (не *arr).
+
+---
+
+## Опции
+
+### Чат ботов (Ollama) — только playerbots + GPU
 
 ```bash
 ./scripts/enable-ollama-chat.sh playerbots
 ```
 
-1660 Ti 6 ГБ → `qwen2.5:3b`. После 3070 Ti:  
+1660 Ti → `qwen2.5:3b`. После 3070 Ti:  
 `OLLAMA_MODEL=qwen2.5:7b ./scripts/enable-ollama-chat.sh playerbots`  
-Порт **11434** друзьям не открывать. [docs/ollama-chat.md](docs/ollama-chat.md).
+[docs/ollama-chat.md](docs/ollama-chat.md).
 
-### HD-модели / текстуры (клиент)
+### HD-модели на клиенте
 
-Патчи ChromieCraft (`HD Patch` или `patchmenu.exe`) только на Bazzite. Realmlist после патча — **ваш IP**, не ChromieCraft. [docs/visuals.md](docs/visuals.md).
-
----
-
-## 8. Если установка оборвалась (ваши логи: playerbots / lonewolf)
-
-Типичные ошибки:
-
-| Симптом | Причина | Что делать |
-|---------|---------|------------|
-| `нет systemd-юнита ac-playerbots-world` | Только клон исходников, без `install.sh` | `./scripts/install.sh playerbots` или `./scripts/install-docker.sh playerbots` |
-| `open .../azerothcore-deploy/docker-compose.yml: no such file` | Старая версия скриптов: compose искали в корне деплоя | `cd ~/azerothcore-deploy && git pull` (ветка `azerothcore-progressive`), затем `./scripts/install-docker.sh lonewolf` |
-| `status=203/EXEC` в journalctl | Юниты systemd есть, **бинарников нет** (сборка не прошла) | Остановить цикл (ниже), затем **один** путь: `install.sh` или `install-docker.sh` |
-
-Диагностика на ВМ:
-
-```bash
-cd ~/azerothcore-deploy
-git pull   # ветка azerothcore-progressive
-./scripts/doctor.sh lonewolf
-```
-
-Остановить restart-loop native (если `203/EXEC`):
-
-```bash
-./scripts/uninstall.sh -y lonewolf
-# или вручную:
-# systemctl --user stop ac-lonewolf-auth.service ac-lonewolf-world.service
-# systemctl --user disable ac-lonewolf-auth.service ac-lonewolf-world.service
-```
-
-Дальше **не** смешивайте пути на одном варианте — выберите Docker **или** native и доведите установку до конца:
-
-```bash
-# Docker (рядом с *arr, без clang на хосте):
-./scripts/install-docker.sh lonewolf
-
-# Native (clang + MySQL на хосте):
-./scripts/install.sh lonewolf
-```
-
-Актуальный `start.sh` перед systemd проверяет бинарники и не даёт уйти в бесконечный `203/EXEC`.
-
-### Полная очистка перед чистой переустановкой
-
-```bash
-cd ~/azerothcore-deploy
-./scripts/uninstall.sh -y lonewolf          # один вариант
-# или всё сразу:
-./scripts/uninstall.sh -y all --purge-data  # + карты в ~/azerothcore-data
-```
-
-Скрипт глушит **и** systemd, **и** Docker (даже если `install-mode` врёт после оборванной установки), снимает юниты, контейнеры/volume, каталог `~/azerothcore-servers/<вариант>`, native MySQL `ac_*_*`. Не трогает *arr. Затем снова `install-docker.sh` / `install.sh`.
+Патчи ChromieCraft только на Bazzite. Realmlist после патча — **ваш IP**. [docs/visuals.md](docs/visuals.md).
 
 ---
 
-## 9. Если контейнеры есть, а `start.sh` не держит сервис
+## Русификация
 
-Симптом: `docker ps` показывает `ac-lonewolf-*`, у world статус **Restarting**, после `start.sh` снова падает.
-
-### 8.1. Смотрите лог
-
-```bash
-docker logs --tail 200 ac-lonewolf-worldserver
-./scripts/status.sh lonewolf
-```
-
-### 8.2. Частые причины (и что сделано в скриптах)
-
-| Причина | Что происходит | Что делать |
-|---------|----------------|------------|
-| **Updates=7 на world** | Повторный SQL после db-import → краш | Актуальный `start.sh` / `install-docker.sh` ставят Updates=0. Или вручную в `~/azerothcore-servers/lonewolf/src/env/dist/etc/worldserver.conf` |
-| **Порт 13306 занят** другим вариантом | DB другого стека жива после `stop.sh` | Актуальный `start.sh` глушит чужие world+auth+**database**. Или `docker stop ac-playerbots-database` и т.п. |
-| **3724/8085 заняты** | другой AC / старый контейнер | `docker ps --filter name=ac-` и остановить лишнее |
-| **OOM** | `mem_limit` 8g на lonewolf при 8 ГБ ВМ + *arr | Сейчас у lonewolf/npcbots **4g**. Смотрите `dmesg \| grep -i oom` |
-| **Нет карт** | client-data-init не докачал | `docker logs ac-lonewolf-client-data` |
-| **db-import упал** | модульный SQL | `docker logs ac-lonewolf-db-import` |
-
-Переустановка поверх (сохранит volume БД, пересоберёт override):
-
-```bash
-cd ~/azerothcore-deploy
-./scripts/install-docker.sh lonewolf
-```
-
-Полный снос контейнеров варианта (данные MySQL volume останутся, пока не `down -v`):
-
-```bash
-cd ~/azerothcore-servers/lonewolf/src
-docker compose -p ac-lonewolf down
-# осторожно, удалит БД варианта:
-# docker compose -p ac-lonewolf down -v
-```
+Русский клиент. На сервере: `RealmZone = 12`, `SupportedLocales = 0,8`, **DBC enUS**.  
+Часть квестов в БД на английском. Команды playerbots — английские.
 
 ---
 
-## 10. Русификация
+## Карта скриптов
 
-Русский клиент. На сервере: `RealmZone = 12`, `SupportedLocales = 0,8`, **DBC enUS**. Квесты из БД частично на английском. Команды playerbots — английские.
+| Скрипт | Назначение |
+|--------|------------|
+| `install.sh` | Полная нативная установка / доустановка варианта |
+| `switch.sh` | Переключить уже установленный вариант |
+| `start.sh` `stop.sh` `status.sh` `restart.sh` | День за днём |
+| `set-realm-address.sh` | IP в realmlist + shared |
+| `setup-ahbot.sh` | Включить продавца/покупателя АН |
+| `import-data.sh` | Распаковать maps/dbc в `~/azerothcore-data` |
+| `doctor.sh` | Диагностика |
+| `uninstall.sh` | Полный снос |
+| `enable-autostart.sh` | Автозапуск systemd |
+| `enable-ollama-chat.sh` | Опция чата (playerbots) |
 
----
-
-## 11. Карта файлов
-
-| Путь | Назначение |
-|------|------------|
-| `scripts/install-docker.sh` | Docker-установка |
-| `scripts/install.sh` | Нативная установка |
-| `scripts/start.sh` `stop.sh` `status.sh` | День за днём |
-| `scripts/doctor.sh` | Диагностика после сбоя установки |
-| `scripts/uninstall.sh` | Полная очистка варианта / всех (docker+native) |
-| `scripts/docker-apply-overlays.sh` | configs → Docker etc + Updates=0 |
-| `scripts/set-realm-address.sh` | IP в realmlist БД |
-| `scripts/setup-ahbot.sh` | Включить продавца/покупателя АН |
-| `configs/` | Overlay-конфиги (native + docker) |
-| `docs/` | Узкие гайды |
-
-Не `kill -9` на worldserver — сначала сейв персонажей.
+Не `kill -9` на worldserver — сначала `stop.sh` (сейв персонажей).

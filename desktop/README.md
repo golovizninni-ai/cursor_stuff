@@ -1,21 +1,18 @@
 # Десктоп: Bazzite (Fedora Atomic)
 
-Клиент крутится на **Bazzite**, сервер — на Ubuntu-ВМ. Windows не нужен.
+Клиент на **Bazzite**, сервер на Ubuntu-ВМ. Windows не нужен.
 
-Нужно два комплекта:
+Нужно:
 
-1. **Играть:** WoW **3.3.5a build 12340**, язык **ruRU** (Lutris, Bottles или non-Steam Proton).
-2. **Сервер:** папки `dbc`, `maps`, `vmaps`, `mmaps` (и по возможности `cameras`).
+1. **Играть:** WoW **3.3.5a build 12340**, язык **ruRU** (Lutris / Bottles / Proton).
+2. **Серверу:** папки `dbc`, `maps`, `vmaps`, `mmaps` (и по возможности `cameras`) в `~/azerothcore-data` на ВМ.
 
-Серверные `dbc` — **enUS** (playerbots ищут спеллы по английским именам). Карты от языка не зависят.
-
+Серверные `dbc` — **enUS**. Карты от языка клиента не зависят.  
 Bazzite неизменяемый: **не** ставьте gcc/cmake через `rpm-ostree` ради экстракторов.
 
-Если сервер ставите **Docker** (`install-docker.sh`), карты качает контейнер `ac-client-data` (enUS). Этот раздел нужен только для **нативной** установки.
+## Быстрый путь (рекомендуется)
 
-## Быстрый путь
-
-Архив enUS с релизов AzerothCore / [wowgaming/client-data](https://github.com/wowgaming/client-data/releases):
+Архив enUS: [wowgaming/client-data](https://github.com/wowgaming/client-data/releases)
 
 ```bash
 scp ac-data.zip USER@VM:/tmp/
@@ -26,7 +23,7 @@ ssh USER@VM 'bash ~/azerothcore-deploy/scripts/import-data.sh /tmp/ac-data.zip'
 
 ## Извлечение из вашего клиента
 
-1. На ВМ соберите любой стек — появятся экстракторы в `~/azerothcore-servers/<вариант>/dist/bin/`.
+1. На ВМ соберите любой вариант (`install.sh`) — появятся экстракторы в `~/azerothcore-servers/<вариант>/dist/bin/`.
 2. На Bazzite найдите корень клиента (`Wow.exe` рядом с `Data/`):
 
 ```bash
@@ -34,13 +31,7 @@ chmod +x desktop/*.sh
 desktop/find-wow-client.sh
 ```
 
-Типичные места:
-
-- Lutris: каталог, который указали при установке
-- Steam Proton: `~/.steam/steam/steamapps/compatdata/<ID>/pfx/drive_c/Program Files/...`
-- Bottles: `~/.local/share/bottles/bottles/<имя>/drive_c/...`
-
-3. Залейте клиент на ВМ (50+ ГБ, нужен `rsync`; на Bazzite он уже есть):
+3. Залейте клиент на ВМ (`rsync`):
 
 ```bash
 desktop/push-client-to-vm.sh \
@@ -52,14 +43,14 @@ desktop/push-client-to-vm.sh \
 4. На ВМ:
 
 ```bash
-scripts/extract-from-client.sh /home/USER/wow-client playerbots
+scripts/extract-from-client.sh /home/USER/wow-client lonewolf
 ```
 
 Если клиент ruRU — после экстракта подмените `~/azerothcore-data/dbc` английским архивом client-data.
 
 ## Realmlist
 
-В **префиксе** игры, не в «нативном» Linux-пути Steam:
+В **префиксе** игры:
 
 `drive_c/.../Data/ruRU/realmlist.wtf`
 
@@ -67,8 +58,5 @@ scripts/extract-from-client.sh /home/USER/wow-client playerbots
 set realmlist IP_ВАШЕЙ_ВМ
 ```
 
-Язык клиента — русский, иначе читается `Data/enUS/`.
-
-Аддоны кладите в тот же префикс: `Interface/AddOns/`. Геймпад: [docs/consoleport.md](../docs/consoleport.md).
-
-Опционально HD-модели/текстуры (патчи ChromieCraft, только клиент): [docs/visuals.md](../docs/visuals.md).
+Аддоны: [docs/addons.md](../docs/addons.md). Геймпад: [docs/consoleport.md](../docs/consoleport.md).  
+HD-патчи (клиент): [docs/visuals.md](../docs/visuals.md).

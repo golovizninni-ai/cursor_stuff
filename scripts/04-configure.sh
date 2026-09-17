@@ -196,4 +196,3 @@ log "Первый раз worldserver лучше в tmux (импорт SQL, accou
 log "Потом: scripts/start.sh ${VARIANT}   и   scripts/stop.sh"
 log "Насовсем: scripts/enable-autostart.sh ${VARIANT}"
 mkdir -p "$AC_ROOT/$VARIANT"
-printf 'native\n' >"$AC_ROOT/$VARIANT/install-mode"
