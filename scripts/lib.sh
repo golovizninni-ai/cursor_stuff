@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Общие функции установки AzerothCore.
+# Общие функции нативной установки AzerothCore (без Docker).
 set -euo pipefail
 
 AC_ROOT="${AC_ROOT:-$HOME/azerothcore-servers}"
@@ -15,6 +15,8 @@ fi
 
 log() { printf '\n[%s] %s\n' "$(date '+%H:%M:%S')" "$*"; }
 die() { printf 'ОШИБКА: %s\n' "$*" >&2; exit 1; }
+
+ALL_VARIANTS=(playerbots npcbots lonewolf)
 
 variant_paths() {
   local variant="$1"
@@ -58,11 +60,15 @@ active_variant_file() {
   echo "$AC_ROOT/active-variant"
 }
 
+shared_dir() {
+  echo "$AC_ROOT/shared"
+}
+
 read_active_variant() {
   local f
   f="$(active_variant_file)"
   if [[ -f "$f" ]]; then
-    cat "$f"
+    tr -d '[:space:]' <"$f"
   fi
 }
 
@@ -76,9 +82,44 @@ resolve_variant() {
   if [[ -z "$variant" ]]; then
     variant="$(read_active_variant || true)"
   fi
-  [[ -n "$variant" ]] || die "укажите вариант: playerbots|npcbots|lonewolf (или сначала scripts/start.sh <вариант>)"
+  [[ -n "$variant" ]] || die "укажите вариант: playerbots|npcbots|lonewolf
+  (или сначала: scripts/install.sh <вариант> / scripts/start.sh <вариант>)"
   variant_paths "$variant"
   VARIANT="$variant"
+}
+
+native_binaries_ok() {
+  local variant="${1:-${VARIANT:-}}"
+  variant_paths "$variant"
+  [[ -x "$PREFIX/bin/authserver" && -x "$PREFIX/bin/worldserver" ]]
+}
+
+variant_installed() {
+  local variant="$1"
+  native_binaries_ok "$variant" || return 1
+  local user_unit="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/ac-${variant}-world.service"
+  local sys_unit="/etc/systemd/system/ac-${variant}-world.service"
+  [[ -f "$user_unit" || -f "$sys_unit" ]]
+}
+
+list_installed_variants() {
+  local v
+  for v in "${ALL_VARIANTS[@]}"; do
+    if variant_installed "$v"; then
+      echo "$v"
+    fi
+  done
+}
+
+require_native_binaries() {
+  local variant="${1:-${VARIANT:-}}"
+  variant_paths "$variant"
+  if native_binaries_ok "$variant"; then
+    return 0
+  fi
+  die "нет исполняемых $PREFIX/bin/{authserver,worldserver}.
+Сначала доведите установку: scripts/install.sh $variant
+Уже стоят: $(list_installed_variants | tr '\n' ' ' || echo «ничего»)"
 }
 
 systemd_for_variant() {
@@ -99,7 +140,9 @@ systemd_for_variant() {
     fi
     UNIT_SCOPE="system"
   else
-    die "нет systemd-юнита ac-${variant}-world. Сначала: scripts/04-configure.sh ${variant}"
+    die "нет systemd-юнита ac-${variant}-world.
+Сначала: scripts/install.sh ${variant}
+Уже стоят: $(list_installed_variants | tr '\n' ' ' || echo «ничего»)"
   fi
 }
 
@@ -114,107 +157,124 @@ manual_ac_running() {
   pgrep -x worldserver >/dev/null 2>&1 || pgrep -x authserver >/dev/null 2>&1
 }
 
-install_mode_file() {
-  echo "$AC_ROOT/$1/install-mode"
+# Сохранить IP реалма в общий файл (для переноса на другой вариант).
+save_shared_realm_address() {
+  local addr="$1"
+  [[ -n "$addr" ]] || return 0
+  mkdir -p "$(shared_dir)"
+  printf '%s\n' "$addr" >"$(shared_dir)/realm-address"
 }
 
-read_install_mode() {
-  local v="${1:-${VARIANT:-}}"
+read_shared_realm_address() {
   local f
-  f="$(install_mode_file "$v")"
+  f="$(shared_dir)/realm-address"
   if [[ -f "$f" ]]; then
     tr -d '[:space:]' <"$f"
-  else
-    echo native
   fi
 }
 
-write_install_mode() {
-  mkdir -p "$AC_ROOT/$1"
-  printf '%s\n' "$2" >"$(install_mode_file "$1")"
-}
+# Скопировать аккаунты + IP реалма из from → to (оба auth DB уже с таблицами).
+sync_accounts_between() {
+  local from="$1" to="$2"
+  [[ "$from" != "$to" ]] || return 0
+  local from_prefix to_prefix
+  case "$from" in
+    playerbots) from_prefix=ac_pb ;;
+    npcbots) from_prefix=ac_nb ;;
+    lonewolf) from_prefix=ac_lw ;;
+    *) return 0 ;;
+  esac
+  case "$to" in
+    playerbots) to_prefix=ac_pb ;;
+    npcbots) to_prefix=ac_nb ;;
+    lonewolf) to_prefix=ac_lw ;;
+    *) return 0 ;;
+  esac
 
-native_binaries_ok() {
-  local variant="${1:-${VARIANT:-}}"
-  variant_paths "$variant"
-  [[ -x "$PREFIX/bin/authserver" && -x "$PREFIX/bin/worldserver" ]]
-}
-
-require_native_binaries() {
-  local variant="${1:-${VARIANT:-}}"
-  variant_paths "$variant"
-  if native_binaries_ok "$variant"; then
+  ensure_mysql_password
+  local has_from has_to
+  has_from="$(mysql_acore -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${from_prefix}_auth' AND table_name='account';" 2>/dev/null || echo 0)"
+  has_to="$(mysql_acore -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${to_prefix}_auth' AND table_name='account';" 2>/dev/null || echo 0)"
+  if [[ "$has_from" != "1" || "$has_to" != "1" ]]; then
+    log "аккаунты не копирую: у одного из вариантов ещё не было первого запуска worldserver"
     return 0
   fi
-  local hint="Сначала: scripts/install.sh $variant"
-  if [[ -f "$SRC/docker-compose.yml" ]]; then
-    hint="Установка не завершена. Native: scripts/install.sh $variant   Docker: scripts/install-docker.sh $variant"
+
+  log "копирую account / account_access: $from → $to"
+  local dump
+  dump="$(mktemp)"
+  mysqldump -h127.0.0.1 -u"$MYSQL_USER" -p"$MYSQL_PASS" \
+    --no-create-info --skip-triggers --compact \
+    "${from_prefix}_auth" account account_access >"$dump" 2>/dev/null || {
+    rm -f "$dump"
+    log "предупреждение: mysqldump аккаунтов не удался"
+    return 0
+  }
+  mysql_acore "${to_prefix}_auth" -e "DELETE FROM account_access; DELETE FROM account;" 2>/dev/null || true
+  mysql_acore "${to_prefix}_auth" <"$dump" 2>/dev/null || log "предупреждение: импорт аккаунтов частично не удался"
+  rm -f "$dump"
+
+  local addr
+  addr="$(mysql_acore -N -e "SELECT address FROM ${from_prefix}_auth.realmlist WHERE id=1 LIMIT 1;" 2>/dev/null || true)"
+  if [[ -z "$addr" ]]; then
+    addr="$(read_shared_realm_address || true)"
   fi
-  die "нет исполняемых $PREFIX/bin/{authserver,worldserver}. $hint"
+  if [[ -n "$addr" ]]; then
+    mysql_acore "${to_prefix}_auth" -e "UPDATE realmlist SET address='${addr}', localAddress='${addr}' WHERE id=1;" 2>/dev/null || true
+    save_shared_realm_address "$addr"
+    log "realmlist.address = $addr (скопирован)"
+  fi
 }
 
-compose_project() {
-  echo "ac-${1}"
-}
+# Перенести общие настройки с предыдущего активного варианта на новый после install.
+carry_over_shared_settings() {
+  local to="$1"
+  local from="${2:-}"
+  if [[ -z "$from" ]]; then
+    from="$(read_active_variant || true)"
+  fi
+  mkdir -p "$(shared_dir)"
 
-dc() {
-  local files=()
-  [[ -f "$SRC/docker-compose.yml" ]] || die "нет $SRC/docker-compose.yml"
-  files+=(-f docker-compose.yml)
-  [[ -f "$SRC/docker-compose.override.yml" ]] && files+=(-f docker-compose.override.yml)
-  # Ollama только если включили опцию и файл конфига на месте
-  if [[ -f "$AC_ROOT/$VARIANT/ollama-chat" && -f "$SRC/docker-compose.ollama.yml" ]]; then
-    if [[ -f "$SRC/env/dist/etc/modules/mod_ollama_chat.conf" ]]; then
-      files+=(-f docker-compose.ollama.yml)
-    else
-      log "предупреждение: ollama-chat включён, но нет mod_ollama_chat.conf — compose.ollama.yml пропущен"
+  local addr
+  addr="$(read_shared_realm_address || true)"
+  if [[ -z "$addr" && -n "$from" && "$from" != "$to" ]]; then
+    variant_paths "$from"
+    if [[ -f "$PREFIX/realm-address.hint" ]]; then
+      addr="$(tr -d '[:space:]' <"$PREFIX/realm-address.hint")"
     fi
   fi
-  docker compose --project-name "$(compose_project "$VARIANT")" --project-directory "$SRC" "${files[@]}" "$@"
+  if [[ -n "$addr" ]]; then
+    save_shared_realm_address "$addr"
+    variant_paths "$to"
+    printf '%s\n' "$addr" >"$PREFIX/realm-address.hint"
+    log "общий IP реалма сохранён: $addr (примените после первого старта: scripts/set-realm-address.sh $to $addr)"
+  fi
+
+  if [[ -n "$from" && "$from" != "$to" ]]; then
+    sync_accounts_between "$from" "$to" || true
+  fi
 }
 
-docker_world_container() { echo "ac-${1}-worldserver"; }
-docker_auth_container() { echo "ac-${1}-authserver"; }
-docker_db_container() { echo "ac-${1}-database"; }
-
-load_docker_env() {
-  [[ -f "$SRC/.env" ]] || return 0
-  set -a
-  # shellcheck disable=SC1091
-  source "$SRC/.env"
-  set +a
-}
-
-docker_mysql() {
-  load_docker_env
-  local pass="${DOCKER_DB_ROOT_PASSWORD:-password}"
-  docker exec -i "$(docker_db_container "$VARIANT")" mysql -uroot -p"${pass}" "$@"
-}
-
-# stop_db=1 — освободить и 13306 (при переключении вариантов).
-# stop_db=0 — как stop.sh: БД оставить.
 stop_variant_stack() {
   local v="$1"
-  local stop_db="${2:-0}"
-  local mode
-  mode="$(read_install_mode "$v")"
   local saved_variant="${VARIANT:-}"
   variant_paths "$v"
   VARIANT="$v"
-  if [[ "$mode" == "docker" ]]; then
-    if [[ -f "$SRC/docker-compose.yml" ]] && command -v docker >/dev/null; then
-      if [[ "$stop_db" == "1" ]]; then
-        log "стоп docker $v (world+auth+database, освобождаем 3724/8085/13306)"
-        dc stop ac-worldserver ac-authserver ac-database 2>/dev/null || true
-      else
-        dc stop ac-worldserver ac-authserver 2>/dev/null || true
-      fi
-    fi
-  else
-    if [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/ac-${v}-world.service" ]] || [[ -f "/etc/systemd/system/ac-${v}-world.service" ]]; then
-      systemd_for_variant "$v"
+  if [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/ac-${v}-world.service" ]] \
+    || [[ -f "/etc/systemd/system/ac-${v}-world.service" ]]; then
+    if systemd_for_variant "$v" 2>/dev/null; then
+      log "стоп systemd $v"
       sc stop "$(world_unit "$v")" "$(auth_unit "$v")" 2>/dev/null || true
     fi
+  fi
+  # процессы из dist этого варианта
+  if [[ -d "$PREFIX/bin" ]]; then
+    pgrep -f "$PREFIX/bin/(worldserver|authserver)" >/dev/null 2>&1 && {
+      log "TERM native процессы $v"
+      pkill -TERM -f "$PREFIX/bin/(worldserver|authserver)" 2>/dev/null || true
+      sleep 2
+      pkill -KILL -f "$PREFIX/bin/(worldserver|authserver)" 2>/dev/null || true
+    } || true
   fi
   if [[ -n "$saved_variant" ]]; then
     VARIANT="$saved_variant"
@@ -225,76 +285,9 @@ stop_variant_stack() {
 stop_other_variants() {
   local current="$1"
   local v
-  for v in playerbots npcbots lonewolf; do
+  for v in "${ALL_VARIANTS[@]}"; do
     [[ "$v" != "$current" ]] || continue
     [[ -d "$AC_ROOT/$v" ]] || continue
-    # чужой Docker-стек целиком: иначе 13306 остаётся занят и start/install падает
-    stop_variant_stack "$v" 1
+    stop_variant_stack "$v"
   done
 }
-
-# Ждём, пока world не в Restarting и auth Running. При crash loop — логи и die.
-wait_docker_ready() {
-  local timeout="${1:-180}"
-  local world auth
-  world="$(docker_world_container "$VARIANT")"
-  auth="$(docker_auth_container "$VARIANT")"
-  local i=0
-  local prev_restarts=-1
-  local stable=0
-  log "ждём world/auth до ${timeout}с…"
-  while (( i < timeout )); do
-    if ! docker inspect "$world" >/dev/null 2>&1; then
-      sleep 2
-      i=$((i + 2))
-      continue
-    fi
-    local wstatus wrestarts wrunning
-    wstatus="$(docker inspect -f '{{.State.Status}}' "$world" 2>/dev/null || echo missing)"
-    wrestarts="$(docker inspect -f '{{.RestartCount}}' "$world" 2>/dev/null || echo 0)"
-    wrunning="$(docker inspect -f '{{.State.Running}}' "$world" 2>/dev/null || echo false)"
-    local astatus
-    astatus="$(docker inspect -f '{{.State.Status}}' "$auth" 2>/dev/null || echo missing)"
-
-    if [[ "$wrunning" == "true" && "$wstatus" == "running" && "$astatus" == "running" ]]; then
-      if [[ "$wrestarts" == "$prev_restarts" ]]; then
-        stable=$((stable + 1))
-      else
-        stable=0
-        prev_restarts="$wrestarts"
-      fi
-      # 6с без роста RestartCount
-      if (( stable >= 3 )); then
-        if docker logs --tail 80 "$world" 2>/dev/null | grep -qiE 'World initialized|AzerothCore rev|server starting'; then
-          log "world/auth выглядят живыми (RestartCount=$wrestarts)"
-          return 0
-        fi
-        # даже без точной строки — 6с running без рестарта ок
-        if (( stable >= 5 )); then
-          log "world/auth running (RestartCount=$wrestarts)"
-          return 0
-        fi
-      fi
-    else
-      stable=0
-      prev_restarts="$wrestarts"
-    fi
-
-    # явный crash loop
-    if [[ "$wstatus" == "restarting" ]] || (( wrestarts > 3 && stable == 0 && i > 40 )); then
-      echo
-      log "worldserver в crash loop (status=$wstatus restarts=$wrestarts)"
-      echo "----- docker logs $world (хвост) -----"
-      docker logs --tail 120 "$world" 2>&1 || true
-      echo "----- docker logs ac-db-import -----"
-      docker logs --tail 80 "ac-${VARIANT}-db-import" 2>&1 || true
-      die "исправьте ошибку выше, затем: scripts/start.sh $VARIANT"
-    fi
-
-    sleep 2
-    i=$((i + 2))
-  done
-  docker logs --tail 120 "$world" 2>&1 || true
-  die "таймаут: worldserver не стабилизировался за ${timeout}с. Смотрите: docker logs $world"
-}
-

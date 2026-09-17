@@ -5,34 +5,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib.sh"
 
 resolve_variant "${1:-}"
-MODE="$(read_install_mode "$VARIANT")"
+systemd_for_variant "$VARIANT"
 
-echo "вариант: $VARIANT  режим: $MODE"
+echo "вариант: $VARIANT  (native)"
 echo "активный стек: $(read_active_variant 2>/dev/null || echo «не задан»)"
-
-if [[ "$MODE" == "docker" ]]; then
-  dc ps || true
-  echo
-  world="$(docker_world_container "$VARIANT")"
-  if docker inspect "$world" >/dev/null 2>&1; then
-    echo "world: $(docker inspect -f 'status={{.State.Status}} running={{.State.Running}} restarts={{.RestartCount}}' "$world")"
-    if docker inspect -f '{{.State.Status}}' "$world" | grep -q restarting; then
-      echo "ВНИМАНИЕ: worldserver в Restarting — смотрите логи:"
-      echo "  docker logs --tail 200 $world"
-    fi
-  fi
-  echo
-  echo "логи: docker logs -f $world"
-  echo "консоль: docker attach $world   (отцепление Ctrl+P Ctrl+Q)"
-else
-  systemd_for_variant "$VARIANT"
-  echo "systemd scope: $UNIT_SCOPE"
-  sc --no-pager --full status "$(auth_unit "$VARIANT")" "$(world_unit "$VARIANT")" || true
-  echo
-  echo "автозапуск:"
-  sc is-enabled "$(auth_unit "$VARIANT")" 2>/dev/null || true
-  sc is-enabled "$(world_unit "$VARIANT")" 2>/dev/null || true
-fi
+echo "установлены: $(list_installed_variants | tr '\n' ' ' || echo «ничего»)"
+echo "systemd scope: $UNIT_SCOPE"
+sc --no-pager --full status "$(auth_unit "$VARIANT")" "$(world_unit "$VARIANT")" || true
+echo
+echo "автозапуск:"
+sc is-enabled "$(auth_unit "$VARIANT")" 2>/dev/null || true
+sc is-enabled "$(world_unit "$VARIANT")" 2>/dev/null || true
 
 if [[ -f "$AC_ROOT/$VARIANT/ollama-chat" ]]; then
   echo

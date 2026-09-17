@@ -5,24 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib.sh"
 
 resolve_variant "${1:-}"
-MODE="$(read_install_mode "$VARIANT")"
-
-if [[ "$MODE" == "docker" ]]; then
-  docker update --restart=unless-stopped \
-    "$(docker_world_container "$VARIANT")" \
-    "$(docker_auth_container "$VARIANT")" \
-    "$(docker_db_container "$VARIANT")" 2>/dev/null || true
-  $SUDO systemctl enable docker 2>/dev/null || true
-  log "Docker: restart=unless-stopped; docker.service как у *arr"
-  if [[ -f "$AC_ROOT/$VARIANT/ollama-chat" ]]; then
-    $SUDO systemctl enable --now ollama 2>/dev/null || true
-    log "ollama.service на хосте тоже в автозапуске"
-  fi
-  log "сейчас поднять: scripts/start.sh $VARIANT"
-  dc ps || true
-  exit 0
-fi
-
+require_native_binaries "$VARIANT"
 systemd_for_variant "$VARIANT"
 
 $SUDO systemctl enable mysql 2>/dev/null || $SUDO systemctl enable mysqld 2>/dev/null || true

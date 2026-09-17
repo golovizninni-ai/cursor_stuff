@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # Опция: интерактивный чат playerbots через Ollama (GPU на ВМ).
-# Только вариант playerbots. npcbots/lonewolf не поддерживаются.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -10,11 +9,10 @@ source "$SCRIPT_DIR/lib.sh"
 VARIANT="${1:-playerbots}"
 [[ "$VARIANT" == "playerbots" ]] || die "Ollama-чат только у playerbots (не $VARIANT)"
 variant_paths "$VARIANT"
-[[ -d "$SRC" ]] || die "сначала scripts/install.sh playerbots или scripts/install-docker.sh playerbots"
+[[ -d "$SRC" ]] || die "сначала scripts/install.sh playerbots"
 
 MODEL="${OLLAMA_MODEL:-qwen2.5:3b}"
 MARKER="$AC_ROOT/$VARIANT/ollama-chat"
-MODE="$(read_install_mode "$VARIANT")"
 
 clone_or_update() {
   local url="$1" dest="$2" branch="${3:-}"
@@ -41,7 +39,7 @@ log "GPU (проброс 1660 Ti / позже 3070 Ti)"
 if command -v nvidia-smi >/dev/null 2>&1; then
   nvidia-smi --query-gpu=name,memory.total --format=csv,noheader || true
 else
-  log "предупреждение: nvidia-smi нет — Ollama может уйти на CPU (медленно). Проверьте проброс видеокарты в ВМ."
+  log "предупреждение: nvidia-smi нет — Ollama может уйти на CPU (медленно)"
 fi
 
 log "libfmt-dev для сборки модуля"
@@ -55,20 +53,15 @@ clone_or_update https://github.com/DustinHendrickson/mod-ollama-chat.git \
 printf '%s\n' "$MODEL" >"$MARKER"
 
 if ! command -v ollama >/dev/null 2>&1; then
-  log "установка Ollama на хост ВМ (не в compose *arr)"
+  log "установка Ollama на хост ВМ"
   curl -fsSL https://ollama.com/install.sh | $SUDO sh
 fi
 
 DROPIN_DIR="/etc/systemd/system/ollama.service.d"
 $SUDO mkdir -p "$DROPIN_DIR"
-HOST_BIND="127.0.0.1:11434"
-if [[ "$MODE" == "docker" ]]; then
-  HOST_BIND="0.0.0.0:11434"
-  log "Docker-worldserver ходит на хост: Ollama слушает 0.0.0.0:11434 (не пробрасывайте 11434 друзьям)"
-fi
-$SUDO tee "$DROPIN_DIR/acore.conf" >/dev/null <<EOF
+$SUDO tee "$DROPIN_DIR/acore.conf" >/dev/null <<'EOF'
 [Service]
-Environment="OLLAMA_HOST=${HOST_BIND}"
+Environment="OLLAMA_HOST=127.0.0.1:11434"
 Environment="OLLAMA_KEEP_ALIVE=30m"
 EOF
 $SUDO systemctl daemon-reload
@@ -86,49 +79,28 @@ apply_conf() {
   local extra
   extra="$(mktemp)"
   printf 'OllamaChat.Model = %s\n' "$MODEL" >"$extra"
-  if [[ "$MODE" == "docker" ]]; then
-    printf 'OllamaChat.Url = http://host.docker.internal:11434/api/generate\n' >>"$extra"
-  fi
   python3 "$SCRIPT_DIR/apply_overlay.py" "$conf" "$extra"
   rm -f "$extra"
-}
-
-copy_and_overlay_module_conf() {
-  local dest="$1"
-  local dist="$SRC/modules/mod-ollama-chat/conf/mod_ollama_chat.conf.dist"
-  [[ -f "$dist" ]] || die "нет $dist"
-  mkdir -p "$(dirname "$dest")"
-  if [[ ! -f "$dest" ]]; then
-    cp "$dist" "$dest"
-  fi
-  apply_conf "$dest"
 }
 
 log "остановка world на время пересборки"
 "$SCRIPT_DIR/stop.sh" "$VARIANT" || true
 
-if [[ "$MODE" == "docker" ]]; then
-  DF="$SRC/apps/docker/Dockerfile"
-  if [[ -f "$DF" ]] && ! grep -q libfmt-dev "$DF"; then
-    log "в Dockerfile образа добавляю libfmt-dev"
-    sed -i 's/libncurses5-dev liblzma-dev/libncurses5-dev liblzma-dev libfmt-dev/' "$DF" || true
-  fi
-  sed "s/qwen2.5:3b/${MODEL}/g" "$REPO_ROOT/docker/compose.ollama.yml" >"$SRC/docker-compose.ollama.yml"
-  copy_and_overlay_module_conf "$SRC/env/dist/etc/modules/mod_ollama_chat.conf"
-  log "пересборка образа worldserver (модуль компилируется внутрь)"
-  dc build ac-worldserver ac-db-import
-  "$SCRIPT_DIR/start.sh" "$VARIANT"
-else
-  log "нативная пересборка"
-  "$SCRIPT_DIR/03-build.sh" "$VARIANT"
-  "$SCRIPT_DIR/04-configure.sh" "$VARIANT"
-  copy_and_overlay_module_conf "$PREFIX/etc/modules/mod_ollama_chat.conf"
-  if [[ -f "$PREFIX/etc/playerbots.conf" ]]; then
-    python3 "$SCRIPT_DIR/apply_overlay.py" "$PREFIX/etc/playerbots.conf" \
-      "$REPO_ROOT/configs/playerbots/playerbots-ollama.overlay.conf"
-  fi
-  "$SCRIPT_DIR/start.sh" "$VARIANT"
+log "нативная пересборка"
+"$SCRIPT_DIR/03-build.sh" "$VARIANT"
+"$SCRIPT_DIR/04-configure.sh" "$VARIANT"
+
+dist="$SRC/modules/mod-ollama-chat/conf/mod_ollama_chat.conf.dist"
+dest="$PREFIX/etc/modules/mod_ollama_chat.conf"
+[[ -f "$dist" ]] || die "нет $dist"
+mkdir -p "$(dirname "$dest")"
+[[ -f "$dest" ]] || cp "$dist" "$dest"
+apply_conf "$dest"
+if [[ -f "$PREFIX/etc/playerbots.conf" ]]; then
+  python3 "$SCRIPT_DIR/apply_overlay.py" "$PREFIX/etc/playerbots.conf" \
+    "$REPO_ROOT/configs/playerbots/playerbots-ollama.overlay.conf"
 fi
+"$SCRIPT_DIR/start.sh" "$VARIANT"
 
 echo
 log "готово. В игре шепните боту по-русски; в группе — обычный /p (не команды follow/attack)."

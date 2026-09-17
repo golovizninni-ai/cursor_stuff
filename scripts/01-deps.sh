@@ -51,11 +51,21 @@ SQL
 
 CNF="/etc/mysql/conf.d/azerothcore-bots.cnf"
 if [[ ! -f "$CNF" ]]; then
-  log "Тюнинг MySQL"
-  $SUDO tee "$CNF" >/dev/null <<'EOF'
+  # На голой 8 ГБ ВМ 4G buffer pool душит playerbots/clang — подстраиваем.
+  local_mem_kb="$(awk '/MemTotal/ {print $2}' /proc/meminfo 2>/dev/null || echo 8388608)"
+  pool="1G"
+  if (( local_mem_kb >= 30000000 )); then
+    pool="8G"
+  elif (( local_mem_kb >= 14000000 )); then
+    pool="4G"
+  elif (( local_mem_kb >= 7000000 )); then
+    pool="2G"
+  fi
+  log "Тюнинг MySQL (innodb_buffer_pool_size=$pool)"
+  $SUDO tee "$CNF" >/dev/null <<EOF
 [mysqld]
 skip-log-bin
-innodb_buffer_pool_size = 4G
+innodb_buffer_pool_size = ${pool}
 innodb_io_capacity = 500
 innodb_io_capacity_max = 2500
 transaction_isolation = READ-COMMITTED
