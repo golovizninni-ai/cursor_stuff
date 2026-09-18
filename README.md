@@ -347,6 +347,45 @@ cat ~/azerothcore-servers/active-variant
 
 ---
 
+## Типичные сбои после установки
+
+### `Access denied for user 'acore'` (часто playerbots)
+
+Модуль читает пароль ещё из `playerbots.conf`. Синхронизация:
+
+```bash
+cd ~/azerothcore-deploy
+git pull
+./scripts/repair-mysql.sh playerbots
+./scripts/restart.sh playerbots
+```
+
+### npcbots падает на ~96% сборки
+
+Обычно **OOM на линковке**. Меньше параллелизма + swap:
+
+```bash
+# временно
+sudo fallocate -l 8G /swapfile && sudo chmod 600 /swapfile
+sudo mkswap /swapfile && sudo swapon /swapfile
+JOBS=2 ./scripts/03-build.sh npcbots
+# или заново:
+JOBS=2 ./scripts/install.sh npcbots
+```
+
+### apt: `NO_PUBKEY … nvidia … libnvidia-container`
+
+Это **не** драйвер игры и не поломка AC. Сломан ключ репы **nvidia-container-toolkit** (нужен Immich/Docker GPU). AC ставится и с этим warning. Как починить ключ и Immich — см. команды ниже в ответе агента / повторите:
+
+```bash
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey \
+  | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+sudo chmod 0644 /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+sudo apt-get update
+```
+
+---
+
 ## Снос и чистая переустановка
 
 ```bash

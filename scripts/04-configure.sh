@@ -79,6 +79,25 @@ for dist in "$ETC/modules/"*.conf.dist "$ETC/"*.conf.dist; do
   copy_dist "$dist" "$conf"
 done
 
+# mod-playerbots читает PlayerbotsDatabaseInfo из playerbots.conf, не только из worldserver.conf
+if [[ "$VARIANT" == "playerbots" ]]; then
+  PB_CONF=""
+  for cand in "$ETC/playerbots.conf" "$ETC/modules/playerbots.conf"; do
+    [[ -f "$cand" ]] && PB_CONF="$cand" && break
+  done
+  if [[ -n "$PB_CONF" ]]; then
+    GEN="$(mktemp)"
+    cat >"$GEN" <<EOF
+PlayerbotsDatabaseInfo = "127.0.0.1;3306;${MYSQL_USER};${MYSQL_PASS};${DB_PREFIX}_playerbots"
+EOF
+    python3 "$SCRIPT_DIR/apply_overlay.py" "$PB_CONF" "$GEN"
+    rm -f "$GEN"
+    log "PlayerbotsDatabaseInfo → $PB_CONF"
+  else
+    log "предупреждение: playerbots.conf ещё нет — будет после первого запуска; пароль уже в worldserver.conf"
+  fi
+fi
+
 apply_if_present() {
   local conf="$1" overlay="$2"
   [[ -f "$conf" && -f "$overlay" ]] || return 0

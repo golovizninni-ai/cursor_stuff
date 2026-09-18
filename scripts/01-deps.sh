@@ -6,7 +6,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib.sh"
 
 log "Установка пакетов сборки"
-$SUDO apt-get update
+# Сторонние репы (nvidia-container-toolkit) могут шуметь GPG — update не валим из‑за них.
+if ! $SUDO apt-get update; then
+  log "предупреждение: apt-get update с ошибками (часто NO_PUBKEY nvidia). Пакеты Ubuntu всё равно ставим."
+fi
 $SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y \
   git cmake make gcc g++ clang \
   libssl-dev libbz2-dev libreadline-dev libncurses-dev libboost-all-dev \
